@@ -21,6 +21,7 @@ typedef Kernel::Point_3 Point_3;
 struct Vertex {
     // maybe Point_3 is better?
     float x, y, z;
+    Point_3 ptx, pty, ptz;
 };
 
 struct Normal {
@@ -42,9 +43,12 @@ struct Object {
 
 struct Model {
     vector<Object> objects;
+    vector<Vertex> model_vertices;
 };
 
-
+float roundtotwo(float num) {
+    return roundf(num * 100) / 100;
+}
 
 int main(int argc, const char *argv[]) {
     const char *filename = (argc > 1) ? argv[1] : "../data/out2.obj";
@@ -73,7 +77,11 @@ int main(int argc, const char *argv[]) {
         } else if (line_type == "v") {
             Vertex vertex{};
             line_stream >> vertex.x >> vertex.y >> vertex.z;
+            vertex.ptx = Point_3(vertex.x, 0.0f, 0.0f);
+            vertex.pty = Point_3(0.0f, vertex.y, 0.0f);
+            vertex.ptz = Point_3(0.0f, 0.0f, vertex.z);
             current_object.object_vertices.push_back(vertex);
+            model.model_vertices.push_back(vertex);
         } else if (line_type == "vn") {
             Normal normal{};
             line_stream >> normal.n1 >> normal.n2 >> normal.n3;
@@ -101,11 +109,12 @@ int main(int argc, const char *argv[]) {
         for (size_t i = 0; i < object.object_faces.size(); ++i) {
             const Face &face = object.object_faces[i];
             cout << "Face " << i + 1 << ":\n";
-            cout << "Vertex Indices: ";
+            cout << "Vertex Coordinates: " << endl;
             for (int index : face.face_vertex_indices) {
-                cout << index << " ";
+                Vertex vertex = model.model_vertices[index];
+                cout << "x: " << roundtotwo(vertex.x) << ", y: " << roundtotwo(vertex.y) << ", z: " << roundtotwo(vertex.z) << endl;
             }
-            cout << "\nNormal Indices: ";
+            cout << "Normal Indices: ";
             for (int index : face.face_normal_indices) {
                 cout << index << " ";
             }
