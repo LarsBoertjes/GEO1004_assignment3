@@ -28,6 +28,10 @@ struct ObjModel {
     std::vector<Group> groups;
     std::vector<Vertex> vertices;
     std::vector<Normal> normals;
+    float min_x = std::numeric_limits<float>::max(), max_x = std::numeric_limits<float>::lowest();
+    float min_y = std::numeric_limits<float>::max(), max_y = std::numeric_limits<float>::lowest();
+    float min_z = std::numeric_limits<float>::max(), max_z = std::numeric_limits<float>::lowest();
 };
+
 
 #endif //GEO1004_ASSIGNMENT3_OBJMODEL_H

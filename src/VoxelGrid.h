@@ -38,6 +38,24 @@ struct VoxelGrid {
         assert(z >= 0 && z < max_z);
         return voxels[x + y*max_x + z*max_x*max_y];
     }
+
+    void model_to_voxel(Vertex& vertex, float min_x, float min_y, float min_z) const {
+        // Calculate voxel coordinates relative to the minimum coordinates
+        float relative_x = vertex.x - min_x;
+        float relative_y = vertex.y - min_y;
+        float relative_z = vertex.z - min_z;
+
+        // Offset the voxel coordinates to create a boundary of empty voxels
+        /*vertex.x_voxel = static_cast<unsigned int>(std::floor(relative_x / voxel_res)) + 1;
+        vertex.y_voxel = static_cast<unsigned int>(std::floor(relative_y / voxel_res)) + 1;
+        vertex.z_voxel = static_cast<unsigned int>(std::floor(relative_z / voxel_res)) + 1;*/
+    }
+
+    void voxel_to_model(Vertex& vertex, float min_x, float min_y, float min_z) const {
+        float model_x = vertex.x + min_x;
+        float model_y
+    }
+
 };
 
 #endif //GEO1004_ASSIGNMENT3_VOXELGRID_H

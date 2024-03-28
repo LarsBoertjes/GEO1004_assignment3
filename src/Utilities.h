@@ -10,6 +10,11 @@ ObjModel readObjFile(const std::string& filePath);
 void printModelInfo(const ObjModel& model, bool printGroupDetails);
 
 ObjModel readObjFile(const string& filePath) {
+    // Read in ObjFile to Struct:
+    // Groups consisting of faces
+    // Vertices for the whole model
+    // Min/max dimensions
+
     ObjModel model;
     ifstream objFile(filePath);
     Group currentGroup;
@@ -73,6 +78,8 @@ ObjModel readObjFile(const string& filePath) {
 }
 
 void printModelInfo(const ObjModel& model, bool printGroupDetails) {
+    // Print the ObjModel Information
+    // Boolean to enable/disable printing of group names
 
     cout << "Number of vertices: " << model.vertices.size() << endl;
     cout << "Number of normals: " << model.normals.size() << endl;
@@ -90,4 +97,19 @@ void printModelInfo(const ObjModel& model, bool printGroupDetails) {
     cout << "Total number of faces: " << totalFaces << endl;
 }
 
+void assignMinMax(ObjModel& model) {
+    // Assigns min, max values for all three directions to ObjModel
+    // Iterate over all the vertices of the ObjModel and update if needed
+    for (const Vertex &vertex : model.vertices) {
+        if (vertex.x < model.min_x) model.min_x = vertex.x;
+        if (vertex.x > model.max_x) model.max_x = vertex.x;
+        if (vertex.y < model.min_y) model.min_y = vertex.y;
+        if (vertex.y > model.max_y) model.max_y = vertex.y;
+        if (vertex.z < model.min_z) model.min_z = vertex.z;
+        if (vertex.z > model.max_z) model.max_z = vertex.z;
+    }
+}
+
 #endif //GEO1004_ASSIGNMENT3_UTILITIES_H
+
+
