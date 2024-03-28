@@ -160,6 +160,7 @@ int main(int argc, const char *argv[]) {
     }
 
     // The voxel grid
+
     // get the dimensions of the space
     float min_x = std::numeric_limits<float>::max();
     float max_x = -std::numeric_limits<float>::max();
@@ -176,9 +177,9 @@ int main(int argc, const char *argv[]) {
             if (vertex.z > max_z) max_z = vertex.z;
         }
 
-    float space_dim_x = round(max_x - min_x);
-    float space_dim_y = round(max_y - min_y);
-    float space_dim_z = round(max_z - min_z);
+    float space_dim_x = (max_x - min_x);
+    float space_dim_y = (max_y - min_y);
+    float space_dim_z = (max_z - min_z);
 
     // calc num of voxels - resolution 0.5m
     auto rows_x = static_cast<unsigned int>(std::ceil(space_dim_x / 0.5f));
