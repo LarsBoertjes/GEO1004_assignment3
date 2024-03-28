@@ -16,6 +16,7 @@
 using namespace std;
 typedef CGAL::Exact_predicates_inexact_constructions_kernel Kernel;
 typedef Kernel::Point_3 Point_3;
+typedef Kernel::Triangle_3 Triangle_3;
 
 
 struct Vertex {
@@ -30,9 +31,10 @@ struct Normal {
 };
 
 struct Face{
-    // and maybe save the triangle_3 / triangulation
     vector<int> face_vertex_indices;
     vector<int> face_normal_indices;
+    Triangle_3 triangle;
+
 };
 
 struct Object {
@@ -75,12 +77,10 @@ struct VoxelGrid {
         return voxels[x + y*max_x + z*max_x*max_y];
     }
 
-
     void model_to_voxel(Vertex& vertex, float min_x, float min_y, float min_z) const {
-        // Translate the model coordinates to voxel coordinates
-        vertex.x_voxel = static_cast<unsigned int>((vertex.x - min_x) / voxel_res);
-        vertex.y_voxel = static_cast<unsigned int>((vertex.y - min_y) / voxel_res);
-        vertex.z_voxel = static_cast<unsigned int>((vertex.z - min_z) / voxel_res);
+        vertex.x_voxel = floor((vertex.x - min_x) / voxel_res);
+        vertex.y_voxel = floor((vertex.y - min_y) / voxel_res);
+        vertex.z_voxel = floor((vertex.z - min_z) / voxel_res);
     }
 
 };
@@ -139,6 +139,21 @@ int main(int argc, const char *argv[]) {
             current_object.object_faces.push_back(face);
         }
     }
+
+
+
+    for (auto &object : model.objects) {
+        for (Face &face : object.object_faces) {
+            for (int index : face.face_vertex_indices) {
+                Vertex vertex = model.model_vertices[index];
+                const Triangle_3 triangle(vertex.ptx, vertex.pty, vertex.ptz);
+                face.triangle = triangle;
+            }
+        }
+    }
+
+
+
     // add the last object
     if (!current_object.name.empty()) {
         model.objects.push_back(current_object);
@@ -152,9 +167,7 @@ int main(int argc, const char *argv[]) {
     float max_y = -std::numeric_limits<float>::max();
     float min_z = std::numeric_limits<float>::max();
     float max_z = -std::numeric_limits<float>::max();
-    for (const auto &object : model.objects) {
-        vector<Vertex> vertices = model.model_vertices;
-        for (const auto &vertex : vertices){
+    for (auto &vertex : model.model_vertices){
             if (vertex.x < min_x) min_x = vertex.x;
             if (vertex.x > max_x) max_x = vertex.x;
             if (vertex.y < min_y) min_y = vertex.y;
@@ -163,7 +176,6 @@ int main(int argc, const char *argv[]) {
             if (vertex.z > max_z) max_z = vertex.z;
         }
 
-    }
     float space_dim_x = round(max_x - min_x);
     float space_dim_y = round(max_y - min_y);
     float space_dim_z = round(max_z - min_z);
@@ -173,8 +185,8 @@ int main(int argc, const char *argv[]) {
     auto rows_y = static_cast<unsigned int>(std::ceil(space_dim_y / 0.5f));
     auto rows_z = static_cast<unsigned int>(std::ceil(space_dim_z / 0.5f));
     VoxelGrid my_building_grid(rows_x, rows_y, rows_z);
-    // move model to voxel grid
 
+    // allign model to voxel grid
     my_building_grid.voxel_res = 0.5;
 
     for (auto &vertex : model.model_vertices) {
@@ -189,8 +201,6 @@ int main(int argc, const char *argv[]) {
             }
         }
     }
-
-
 
     // my test print statements
     for (const auto &object : model.objects) {
@@ -211,7 +221,6 @@ int main(int argc, const char *argv[]) {
         }
     }
 
-
     cout << "Voxel Grid Indices:" << endl;
     for (unsigned int z = 0; z < my_building_grid.max_z; ++z) {
         for (unsigned int y = 0; y < my_building_grid.max_y; ++y) {
@@ -227,6 +236,7 @@ int main(int argc, const char *argv[]) {
             cout << "Original Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
             my_building_grid.model_to_voxel(vertex, min_x, min_y, min_z);
             cout << "Voxel Vertex: (" << vertex.x_voxel << ", " << vertex.y_voxel << ", " << vertex.z_voxel << ")" << endl;
+            // vertex.x etc always store the original, so no need to convert back
         cout << "Back to Model Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
     }
 
