@@ -22,6 +22,7 @@ struct Vertex {
     // maybe Point_3 is better?
     float x, y, z;
     Point_3 ptx, pty, ptz;
+    unsigned int x_voxel, y_voxel, z_voxel;
 };
 
 struct Normal {
@@ -46,6 +47,44 @@ struct Model {
     vector<Vertex> model_vertices;
 };
 
+struct VoxelGrid {
+    std::vector<unsigned int> voxels;
+    unsigned int max_x, max_y, max_z;
+    float voxel_res;
+
+    VoxelGrid(unsigned int x, unsigned int y, unsigned int z) {
+        max_x = x;
+        max_y = y;
+        max_z = z;
+        unsigned int total_voxels = x*y*z;
+        voxels.reserve(total_voxels);
+        for (unsigned int i = 0; i < total_voxels; ++i) voxels.push_back(0);
+    }
+
+    unsigned int &operator()(const unsigned int &x, const unsigned int &y, const unsigned int &z) {
+        assert(x >= 0 && x < max_x);
+        assert(y >= 0 && y < max_y);
+        assert(z >= 0 && z < max_z);
+        return voxels[x + y*max_x + z*max_x*max_y];
+    }
+
+    unsigned int operator()(const unsigned int &x, const unsigned int &y, const unsigned int &z) const {
+        assert(x >= 0 && x < max_x);
+        assert(y >= 0 && y < max_y);
+        assert(z >= 0 && z < max_z);
+        return voxels[x + y*max_x + z*max_x*max_y];
+    }
+
+
+    void model_to_voxel(Vertex& vertex, float min_x, float min_y, float min_z) const {
+        // Translate the model coordinates to voxel coordinates
+        vertex.x_voxel = static_cast<unsigned int>((vertex.x - min_x) / voxel_res);
+        vertex.y_voxel = static_cast<unsigned int>((vertex.y - min_y) / voxel_res);
+        vertex.z_voxel = static_cast<unsigned int>((vertex.z - min_z) / voxel_res);
+    }
+
+};
+
 float roundtotwo(float num) {
     return roundf(num * 100) / 100;
 }
@@ -60,6 +99,7 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
+    // load the obj file into memory
     string line;
     Object current_object;
     Model model;
@@ -104,6 +144,55 @@ int main(int argc, const char *argv[]) {
         model.objects.push_back(current_object);
     }
 
+    // The voxel grid
+    // get the dimensions of the space
+    float min_x = std::numeric_limits<float>::max();
+    float max_x = -std::numeric_limits<float>::max();
+    float min_y = std::numeric_limits<float>::max();
+    float max_y = -std::numeric_limits<float>::max();
+    float min_z = std::numeric_limits<float>::max();
+    float max_z = -std::numeric_limits<float>::max();
+    for (const auto &object : model.objects) {
+        vector<Vertex> vertices = model.model_vertices;
+        for (const auto &vertex : vertices){
+            if (vertex.x < min_x) min_x = vertex.x;
+            if (vertex.x > max_x) max_x = vertex.x;
+            if (vertex.y < min_y) min_y = vertex.y;
+            if (vertex.y > max_y) max_y = vertex.y;
+            if (vertex.z < min_z) min_z = vertex.z;
+            if (vertex.z > max_z) max_z = vertex.z;
+        }
+
+    }
+    float space_dim_x = round(max_x - min_x);
+    float space_dim_y = round(max_y - min_y);
+    float space_dim_z = round(max_z - min_z);
+
+    // calc num of voxels - resolution 0.5m
+    auto rows_x = static_cast<unsigned int>(std::ceil(space_dim_x / 0.5f));
+    auto rows_y = static_cast<unsigned int>(std::ceil(space_dim_y / 0.5f));
+    auto rows_z = static_cast<unsigned int>(std::ceil(space_dim_z / 0.5f));
+    VoxelGrid my_building_grid(rows_x, rows_y, rows_z);
+    // move model to voxel grid
+
+    my_building_grid.voxel_res = 0.5;
+
+    for (auto &vertex : model.model_vertices) {
+        my_building_grid.model_to_voxel(vertex, min_x, min_y, min_z);
+    }
+
+    for (unsigned int x = 0; x < rows_x; ++x) {
+        for (unsigned int y = 0; y < rows_y; ++y) {
+            for (unsigned int z = 0; z < rows_z; ++z) {
+                unsigned int value = my_building_grid(x, y, z);
+                // set value to "building" if it intersects with the target
+            }
+        }
+    }
+
+
+
+    // my test print statements
     for (const auto &object : model.objects) {
         cout << "Object: " << object.name << endl;
         for (size_t i = 0; i < object.object_faces.size(); ++i) {
@@ -122,5 +211,25 @@ int main(int argc, const char *argv[]) {
         }
     }
 
+
+    cout << "Voxel Grid Indices:" << endl;
+    for (unsigned int z = 0; z < my_building_grid.max_z; ++z) {
+        for (unsigned int y = 0; y < my_building_grid.max_y; ++y) {
+            for (unsigned int x = 0; x < my_building_grid.max_x; ++x) {
+                cout << "(" << x << ", " << y << ", " << z << ") ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+    }
+
+    for (auto &vertex : model.model_vertices) {
+            cout << "Original Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
+            my_building_grid.model_to_voxel(vertex, min_x, min_y, min_z);
+            cout << "Voxel Vertex: (" << vertex.x_voxel << ", " << vertex.y_voxel << ", " << vertex.z_voxel << ")" << endl;
+        cout << "Back to Model Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
+    }
+
+
     return 0;
-}
+};
