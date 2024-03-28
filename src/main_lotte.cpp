@@ -55,9 +55,9 @@ struct VoxelGrid {
     float voxel_res;
 
     VoxelGrid(unsigned int x, unsigned int y, unsigned int z) {
-        max_x = x;
-        max_y = y;
-        max_z = z;
+        max_x = x + 1;
+        max_y = y + 1;
+        max_z = z + 1;
         unsigned int total_voxels = x*y*z;
         voxels.reserve(total_voxels);
         for (unsigned int i = 0; i < total_voxels; ++i) voxels.push_back(0);
@@ -78,9 +78,15 @@ struct VoxelGrid {
     }
 
     void model_to_voxel(Vertex& vertex, float min_x, float min_y, float min_z) const {
-        vertex.x_voxel = floor((vertex.x - min_x) / voxel_res);
-        vertex.y_voxel = floor((vertex.y - min_y) / voxel_res);
-        vertex.z_voxel = floor((vertex.z - min_z) / voxel_res);
+        // Calculate voxel coordinates relative to the minimum coordinates
+        float relative_x = vertex.x - min_x;
+        float relative_y = vertex.y - min_y;
+        float relative_z = vertex.z - min_z;
+
+        // Offset the voxel coordinates to create a boundary of empty voxels
+        vertex.x_voxel = static_cast<unsigned int>(std::floor(relative_x / voxel_res)) + 1;
+        vertex.y_voxel = static_cast<unsigned int>(std::floor(relative_y / voxel_res)) + 1;
+        vertex.z_voxel = static_cast<unsigned int>(std::floor(relative_z / voxel_res)) + 1;
     }
 
 };
