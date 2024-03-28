@@ -26,24 +26,34 @@ struct Normal {
 struct Face {
     vector<int> vertexIndices;
     vector<int> normalIndices;
+
+};
+
+struct Group {
+    vector<Face> groupFaces;
+    int smoothingParameter = 0;
+    string usemtl;
+    string groupname;
 };
 
 struct ObjModel {
+    vector<Group> groups;
     vector<Vertex> vertices;
     vector<Normal> normals;
-    vector<Face> faces;
 };
 
 ObjModel readObjFile(const string& filePath);
+void printModelInfo(const ObjModel& model, bool printGroupDetails);
 
 int main(int argc, const char * argv[]) {
 
     // Step 1: read the obj file content into memory
-    ObjModel model = readObjFile("../data/IfcOpenHouse_IFC2x3.obj");
+    ObjModel model = readObjFile("../data/IfcOpenHouse_IFC4.obj");
 
-    cout << "Loaded " << model.vertices.size() << " vertices, "
-         << model.normals.size() << " normals, and "
-         << model.faces.size() << " faces." << endl;
+
+    // Think about removing the slabs bigger than the building footprint
+
+
 
 
     return 0;
@@ -51,8 +61,9 @@ int main(int argc, const char * argv[]) {
 
 ObjModel readObjFile(const string& filePath) {
     ObjModel model;
-    string line;
     ifstream objFile(filePath);
+    Group currentGroup;
+    string line;
 
     if (objFile.is_open()) {
         while (getline(objFile, line)) {
@@ -73,19 +84,57 @@ ObjModel readObjFile(const string& filePath) {
                 string vertex;
                 while (ss >> vertex) {
                     size_t pos1 = vertex.find("//");
-                    int vIndex = stoi(vertex.substr(0, pos1)) - 1; // OBJ indices are 1-based
+                    int vIndex = stoi(vertex.substr(0, pos1)) - 1;
                     int nIndex = stoi(vertex.substr(pos1 + 2)) - 1;
                     f.vertexIndices.push_back(vIndex);
                     f.normalIndices.push_back(nIndex);
                 }
-                model.faces.push_back(f);
+                currentGroup.groupFaces.push_back(f);
+            } else if (prefix == "g") {
+                if (!currentGroup.groupFaces.empty()) {
+                    model.groups.push_back(currentGroup);
+                    currentGroup = Group();
+                }
+                ss >> currentGroup.groupname;
+            } else if (prefix == "s") {
+                string smoothing;
+                ss >> smoothing;
+                if (smoothing == "off") {
+                    currentGroup.smoothingParameter = 0;
+                } else {
+                    currentGroup.smoothingParameter = stoi(smoothing);
+                }
+            } else if (prefix == "usemtl") {
+                ss >> currentGroup.usemtl;
             }
+        }
+        if (!currentGroup.groupFaces.empty()) {
+            model.groups.push_back(currentGroup);
         }
         objFile.close();
     } else {
         cout << "Unable to open file" << endl;
     }
 
+    cout << "Successfully read OBJ file in memory with following content: " << endl;
+    printModelInfo(model, false);
+
     return model;
 }
 
+void printModelInfo(const ObjModel& model, bool printGroupDetails) {
+    cout << "Number of vertices: " << model.vertices.size() << endl;
+    cout << "Number of normals: " << model.normals.size() << endl;
+    cout << "Number of groups: " << model.groups.size() << endl;
+
+    int totalFaces = 0;
+    for (const auto& group : model.groups) {
+        if (printGroupDetails) {
+            cout << "Group: " << group.groupname << ", Faces: " << group.groupFaces.size();
+            cout << ", Smoothing: " << group.smoothingParameter << ", Material: " << group.usemtl << endl;
+        }
+        totalFaces += group.groupFaces.size();
+    }
+
+    cout << "Total number of faces: " << totalFaces << endl;
+}
