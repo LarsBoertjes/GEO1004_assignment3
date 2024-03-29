@@ -34,23 +34,46 @@ int main(int argc, const char * argv[]) {
     float bbZ = model.max_z - model.min_z;
 
     // Step 3: Construct the voxel grid
-    // Initialize resolution
+    // Set the resolution
     float resolution = 0.5;
 
-    // Calculate number of rows in all dimensions
-    int num_rows_x = static_cast<unsigned int>(std::ceil(bbX / 0.5f));
-    int num_rows_y = static_cast<unsigned int>(std::ceil(bbY / 0.5f));
-    int num_rows_z = static_cast<unsigned int>(std::ceil(bbZ / 0.5f));
+    // Calculate number of rows in all dimensions + 2 for margin
+    int num_rows_x = static_cast<unsigned int>(std::ceil(bbX / resolution)) + 2;
+    int num_rows_y = static_cast<unsigned int>(std::ceil(bbY / resolution)) + 2;
+    int num_rows_z = static_cast<unsigned int>(std::ceil(bbZ / resolution)) + 2;
 
     cout << "Using a " << resolution << "m resolution the VoxelGrid will have: " << endl;
     cout << "Number of rows X: " << num_rows_x << endl;
     cout << "Number of rows Y: " << num_rows_y << endl;
     cout << "Number of rows Z: " << num_rows_z << endl;
+    cout << "-----------------------" << endl;
 
     VoxelGrid voxelGrid(num_rows_x, num_rows_y, num_rows_z);
+    voxelGrid.resolution = resolution;
 
-    // Step 4: Voxelisation of triangles
-    // still to do
+    // Translate vertices to integer voxel coordinates
+    for (Vertex &vertex : model.vertices) {
+        model.model_vertices.push_back(voxelGrid.model_to_voxel(vertex, model.min_x, model.min_y, model.min_z));
+    }
+
+    // Step 4: Voxelise the grid
+    // I want to use the functions here!
+    voxeliseModel(model, voxelGrid);
+
+
+    // Testing to print first layer
+    cout << "Printing grid layer z = 0 " << endl;
+    for (int i = 0; i < num_rows_x; ++i) {
+        for (int j = 0; j < num_rows_y; ++j) {
+            unsigned int v = voxelGrid(i, j, 0);
+            cout << v << " ";
+        }
+        cout << endl;
+    }
+
+    cout << "-----------------------" << endl;
+
+
 
 
 

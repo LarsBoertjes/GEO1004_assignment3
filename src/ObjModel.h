@@ -17,6 +17,10 @@ struct Face {
     std::vector<int> normalIndices;
 };
 
+struct Triangle {
+    Vertex vertices[3];
+};
+
 struct Group {
     std::vector<Face> groupFaces;
     int smoothingParameter = 0;
@@ -27,6 +31,7 @@ struct Group {
 struct ObjModel {
     std::vector<Group> groups;
     std::vector<Vertex> vertices;
+    std::vector<Vertex> model_vertices;
     std::vector<Normal> normals;
     float min_x = std::numeric_limits<float>::max(), max_x = std::numeric_limits<float>::lowest();
     float min_y = std::numeric_limits<float>::max(), max_y = std::numeric_limits<float>::lowest();

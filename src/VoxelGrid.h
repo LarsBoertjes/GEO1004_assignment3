@@ -15,6 +15,7 @@ struct VoxelGrid {
 
     std::vector<unsigned int> voxels;
     unsigned int max_x, max_y, max_z;
+    float resolution;
 
     VoxelGrid(unsigned int x, unsigned int y, unsigned int z) {
         max_x = x;
@@ -39,21 +40,18 @@ struct VoxelGrid {
         return voxels[x + y*max_x + z*max_x*max_y];
     }
 
-    void model_to_voxel(Vertex& vertex, float min_x, float min_y, float min_z) const {
-        // Calculate voxel coordinates relative to the minimum coordinates
-        float relative_x = vertex.x - min_x;
-        float relative_y = vertex.y - min_y;
-        float relative_z = vertex.z - min_z;
+    Vertex model_to_voxel(const Vertex& vertex, float min_x, float min_y, float min_z) const {
+        Vertex voxelVertex;
 
-        // Offset the voxel coordinates to create a boundary of empty voxels
-        /*vertex.x_voxel = static_cast<unsigned int>(std::floor(relative_x / voxel_res)) + 1;
-        vertex.y_voxel = static_cast<unsigned int>(std::floor(relative_y / voxel_res)) + 1;
-        vertex.z_voxel = static_cast<unsigned int>(std::floor(relative_z / voxel_res)) + 1;*/
-    }
+        float out_x = static_cast<unsigned int>((vertex.x - min_x) / resolution);
+        float out_y = static_cast<unsigned int>((vertex.y - min_y) / resolution);
+        float out_z = static_cast<unsigned int>((vertex.z - min_z) / resolution);
 
-    void voxel_to_model(Vertex& vertex, float min_x, float min_y, float min_z) const {
-        float model_x = vertex.x + min_x;
-        float model_y
+        voxelVertex.x = out_x;
+        voxelVertex.y = out_y;
+        voxelVertex.z = out_z;
+
+        return voxelVertex;
     }
 
 };
