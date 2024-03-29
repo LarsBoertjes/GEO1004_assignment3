@@ -13,24 +13,27 @@
 #include <CGAL/Triangulation_vertex_base_2.h>
 #include <CGAL/Triangulation_face_base_with_info_2.h>
 #include <CGAL/linear_least_squares_fitting_3.h>
+#include <CGAL/intersections.h>
+
 using namespace std;
 typedef CGAL::Exact_predicates_inexact_constructions_kernel Kernel;
 typedef Kernel::Point_3 Point_3;
 typedef Kernel::Triangle_3 Triangle_3;
-
+typedef Kernel::Line_3 Line_3;
 
 struct Vertex {
     // maybe Point_3 is better?
     float x, y, z;
     Point_3 ptx, pty, ptz;
     unsigned int x_voxel, y_voxel, z_voxel;
+    float x_model, y_model, z_model;
 };
 
 struct Normal {
     float n1, n2, n3;
 };
 
-struct Face{
+struct Face {
     vector<int> face_vertex_indices;
     vector<int> face_normal_indices;
     Triangle_3 triangle;
@@ -58,7 +61,7 @@ struct VoxelGrid {
         max_x = x + 1;
         max_y = y + 1;
         max_z = z + 1;
-        unsigned int total_voxels = x*y*z;
+        unsigned int total_voxels = x * y * z;
         voxels.reserve(total_voxels);
         for (unsigned int i = 0; i < total_voxels; ++i) voxels.push_back(0);
     }
@@ -67,26 +70,28 @@ struct VoxelGrid {
         assert(x >= 0 && x < max_x);
         assert(y >= 0 && y < max_y);
         assert(z >= 0 && z < max_z);
-        return voxels[x + y*max_x + z*max_x*max_y];
+        return voxels[x + y * max_x + z * max_x * max_y];
     }
 
     unsigned int operator()(const unsigned int &x, const unsigned int &y, const unsigned int &z) const {
         assert(x >= 0 && x < max_x);
         assert(y >= 0 && y < max_y);
         assert(z >= 0 && z < max_z);
-        return voxels[x + y*max_x + z*max_x*max_y];
+        return voxels[x + y * max_x + z * max_x * max_y];
     }
 
-    void model_to_voxel(Vertex& vertex, float min_x, float min_y, float min_z) const {
-        // Calculate voxel coordinates relative to the minimum coordinates
-        float relative_x = vertex.x - min_x;
-        float relative_y = vertex.y - min_y;
-        float relative_z = vertex.z - min_z;
-
+    void model_to_voxel(Vertex &vertex, float min_x, float min_y, float min_z) const {
         // Offset the voxel coordinates to create a boundary of empty voxels
-        vertex.x_voxel = static_cast<unsigned int>(std::floor(relative_x / voxel_res)) + 1;
-        vertex.y_voxel = static_cast<unsigned int>(std::floor(relative_y / voxel_res)) + 1;
-        vertex.z_voxel = static_cast<unsigned int>(std::floor(relative_z / voxel_res)) + 1;
+        vertex.x_voxel = static_cast<unsigned int>(std::floor((vertex.x - min_x) / voxel_res)) + 1;
+        vertex.y_voxel = static_cast<unsigned int>(std::floor((vertex.y - min_y) / voxel_res)) + 1;
+        vertex.z_voxel = static_cast<unsigned int>(std::floor((vertex.z - min_z) / voxel_res)) + 1;
+    }
+
+    void voxel_to_model(Vertex& vertex, float min_x, float min_y, float min_z) const {
+        vertex.x_model =  ((vertex.x_voxel + min_x) * voxel_res) - 1;
+        vertex.y_model =  ((vertex.y_voxel + min_y) * voxel_res) - 1;
+        vertex.z_model =  ((vertex.z_voxel + min_z) * voxel_res) -1;
+
     }
 
 };
@@ -147,10 +152,9 @@ int main(int argc, const char *argv[]) {
     }
 
 
-
-    for (auto &object : model.objects) {
-        for (Face &face : object.object_faces) {
-            for (int index : face.face_vertex_indices) {
+    for (auto &object: model.objects) {
+        for (Face &face: object.object_faces) {
+            for (int index: face.face_vertex_indices) {
                 Vertex vertex = model.model_vertices[index];
                 const Triangle_3 triangle(vertex.ptx, vertex.pty, vertex.ptz);
                 face.triangle = triangle;
@@ -174,14 +178,14 @@ int main(int argc, const char *argv[]) {
     float max_y = -std::numeric_limits<float>::max();
     float min_z = std::numeric_limits<float>::max();
     float max_z = -std::numeric_limits<float>::max();
-    for (auto &vertex : model.model_vertices){
-            if (vertex.x < min_x) min_x = vertex.x;
-            if (vertex.x > max_x) max_x = vertex.x;
-            if (vertex.y < min_y) min_y = vertex.y;
-            if (vertex.y > max_y) max_y = vertex.y;
-            if (vertex.z < min_z) min_z = vertex.z;
-            if (vertex.z > max_z) max_z = vertex.z;
-        }
+    for (auto &vertex: model.model_vertices) {
+        if (vertex.x < min_x) min_x = vertex.x;
+        if (vertex.x > max_x) max_x = vertex.x;
+        if (vertex.y < min_y) min_y = vertex.y;
+        if (vertex.y > max_y) max_y = vertex.y;
+        if (vertex.z < min_z) min_z = vertex.z;
+        if (vertex.z > max_z) max_z = vertex.z;
+    }
 
     float space_dim_x = (max_x - min_x);
     float space_dim_y = (max_y - min_y);
@@ -196,56 +200,89 @@ int main(int argc, const char *argv[]) {
     // allign model to voxel grid
     my_building_grid.voxel_res = 0.5;
 
-    for (auto &vertex : model.model_vertices) {
+    for (auto &vertex: model.model_vertices) {
         my_building_grid.model_to_voxel(vertex, min_x, min_y, min_z);
     }
 
-    for (unsigned int x = 0; x < rows_x; ++x) {
-        for (unsigned int y = 0; y < rows_y; ++y) {
-            for (unsigned int z = 0; z < rows_z; ++z) {
-                unsigned int value = my_building_grid(x, y, z);
-                // set value to "building" if it intersects with the target
+
+    // attempt at step 4
+    // i think the empty boundary all round isn't working
+    for (unsigned int z = 1; z < my_building_grid.max_z; ++z) {
+        for (unsigned int y = 1; y < my_building_grid.max_y; ++y) {
+            for (unsigned int x = 1; x < my_building_grid.max_x; ++x) {
+
+                Vertex vertex;
+                vertex.x_voxel = x;
+                vertex.y_voxel = y;
+                vertex.z_voxel = z;
+
+                my_building_grid.voxel_to_model(vertex, min_x, min_y, min_z);
+                float voxel_center_x = (vertex.x_model + 0.5) + 1;
+                float voxel_center_y = (vertex.y_model + 0.5) + 1;
+                float voxel_center_z = (vertex.z_model + 0.5) + 1;
+
+                // make lines through each voxel center
+                Line_3 l1(Point_3(voxel_center_x, vertex.y_model - 1, voxel_center_z),
+                          Point_3(voxel_center_x, vertex.y_model, voxel_center_z));
+                Line_3 l2(Point_3(voxel_center_x, voxel_center_y, vertex.z_model-1),
+                          Point_3(voxel_center_x, voxel_center_y, vertex.z_model));
+
+                for (auto &object: model.objects) {
+                    for (Face &face: object.object_faces) {
+                        const Triangle_3 &triangle = face.triangle;
+                        if (CGAL::do_intersect(triangle, l1) || CGAL::do_intersect(triangle, l2)) {
+                            cout << "Intersection detected at voxel (" << x << ", " << y << ", " << z << ")" << endl;
+                            my_building_grid(x, y, z) = 1;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
 
-    // my test print statements
-    for (const auto &object : model.objects) {
-        cout << "Object: " << object.name << endl;
-        for (size_t i = 0; i < object.object_faces.size(); ++i) {
-            const Face &face = object.object_faces[i];
-            cout << "Face " << i + 1 << ":\n";
-            cout << "Vertex Coordinates: " << endl;
-            for (int index : face.face_vertex_indices) {
-                Vertex vertex = model.model_vertices[index];
-                cout << "x: " << roundtotwo(vertex.x) << ", y: " << roundtotwo(vertex.y) << ", z: " << roundtotwo(vertex.z) << endl;
-            }
-            cout << "Normal Indices: ";
-            for (int index : face.face_normal_indices) {
-                cout << index << " ";
-            }
-            cout << endl;
-        }
-    }
+
+
+//    // my test print statements
+//    for (const auto &object: model.objects) {
+//        cout << "Object: " << object.name << endl;
+//        for (size_t i = 0; i < object.object_faces.size(); ++i) {
+//            const Face &face = object.object_faces[i];
+//            cout << "Face " << i + 1 << ":\n";
+//            cout << "Vertex Coordinates: " << endl;
+//            for (int index: face.face_vertex_indices) {
+//                Vertex vertex = model.model_vertices[index];
+//                cout << "x: " << roundtotwo(vertex.x) << ", y: " << roundtotwo(vertex.y) << ", z: "
+//                     << roundtotwo(vertex.z) << endl;
+//            }
+//            cout << "Normal Indices: ";
+//            for (int index: face.face_normal_indices) {
+//                cout << index << " ";
+//            }
+//            cout << endl;
+//        }
+//    }
 
     cout << "Voxel Grid Indices:" << endl;
     for (unsigned int z = 0; z < my_building_grid.max_z; ++z) {
         for (unsigned int y = 0; y < my_building_grid.max_y; ++y) {
             for (unsigned int x = 0; x < my_building_grid.max_x; ++x) {
-                cout << "(" << x << ", " << y << ", " << z << ") ";
+                cout << "(" << my_building_grid(x, y, z) << ") ";
             }
             cout << endl;
         }
         cout << endl;
     }
 
-    for (auto &vertex : model.model_vertices) {
-            cout << "Original Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
-            my_building_grid.model_to_voxel(vertex, min_x, min_y, min_z);
-            cout << "Voxel Vertex: (" << vertex.x_voxel << ", " << vertex.y_voxel << ", " << vertex.z_voxel << ")" << endl;
-            // vertex.x etc always store the original, so no need to convert back
-        cout << "Back to Model Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
-    }
+//    for (auto &vertex: model.model_vertices) {
+//        cout << "Original Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
+//        my_building_grid.model_to_voxel(vertex, min_x, min_y, min_z);
+//        cout << "Voxel Vertex: (" << vertex.x_voxel << ", " << vertex.y_voxel << ", " << vertex.z_voxel
+//             << ")" << endl;
+//        // vertex.x etc always store the original, so no need to convert back
+//        cout << "Back to Model Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")"
+//             << endl;
+//    }
 
 
     return 0;
