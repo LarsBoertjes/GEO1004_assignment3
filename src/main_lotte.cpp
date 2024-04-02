@@ -207,7 +207,7 @@ int main(int argc, const char *argv[]) {
     VoxelGrid my_building_grid(rows_x, rows_y, rows_z);
     my_building_grid.voxel_res = resolution;
 
-
+    
     for (auto triangle : triangles) {
         cout <<triangle<<endl;
         // create the bbox of the triangle
@@ -225,37 +225,18 @@ int main(int argc, const char *argv[]) {
 
                     CGAL::Bbox_3 voxel_bbox(voxelMinX, voxelMinY, voxelMinZ, voxelMaxX, voxelMaxY, voxelMaxZ);
 
-                    Point_3 v0(voxelMinX, voxelMinY, voxelMinZ);
-                    Point_3 v1(voxelMaxX, voxelMinY, voxelMinZ);
-                    Point_3 v2(voxelMaxX, voxelMaxY, voxelMinZ);
-                    Point_3 v3(voxelMinX, voxelMaxY, voxelMinZ);
-                    Point_3 v4(voxelMinX, voxelMinY, voxelMaxZ);
-                    Point_3 v5(voxelMaxX, voxelMinY, voxelMaxZ);
-                    Point_3 v6(voxelMaxX, voxelMaxY, voxelMaxZ);
-                    Point_3 v7(voxelMinX, voxelMaxY, voxelMaxZ);
-
-
-                    Line_3 edges[12] = {
-                            Line_3(v0, v1), Line_3(v1, v2), Line_3(v2, v3), Line_3(v3, v0), // Bottom face
-                            Line_3(v4, v5), Line_3(v5, v6), Line_3(v6, v7), Line_3(v7, v4), // Top face
-                            Line_3(v0, v4), Line_3(v1, v5), Line_3(v2, v6), Line_3(v3, v7)  // Connecting edges
-                    };
-
                     // check if the bounding boxes intersect
                     if (!CGAL::do_overlap(bbox, voxel_bbox))
                         continue;
 
-                    for (auto edge: edges) {
-                        if (CGAL::do_intersect(triangle, voxel_bbox)) {
-                            my_building_grid(x, y, z) = 1;
-                            break;
-                        }
+                    // check if the triangle intersects with the voxel bbox
+                    if (CGAL::do_intersect(triangle, voxel_bbox)) {
+                        my_building_grid(x, y, z) = 1;
                     }
                 }
             }
         }
     }
-
 
 //    // my test print statements
 //    for (const auto &object: model.objects) {
