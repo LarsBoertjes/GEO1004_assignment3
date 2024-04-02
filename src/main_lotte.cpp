@@ -39,8 +39,6 @@ struct Normal {
 struct Face {
     vector<int> face_vertex_indices;
     vector<int> face_normal_indices;
-    Triangle_3 triangle;
-
 };
 
 struct Object {
@@ -83,18 +81,18 @@ struct VoxelGrid {
         return voxels[x + y * max_x + z * max_x * max_y];
     }
 
-    void model_to_voxel(Vertex &vertex, float min_x, float min_y, float min_z) const {
-        vertex.x_voxel = static_cast<unsigned int>(std::floor((vertex.x - min_x) / voxel_res)) + 1;
-        vertex.y_voxel = static_cast<unsigned int>(std::floor((vertex.y - min_y) / voxel_res)) + 1;
-        vertex.z_voxel = static_cast<unsigned int>(std::floor((vertex.z - min_z) / voxel_res)) + 1;
-    }
-
-    void voxel_to_model(Vertex& vertex, float min_x, float min_y, float min_z) const {
-        vertex.x_model =  ((vertex.x_voxel + min_x) * voxel_res) - 1;
-        vertex.y_model =  ((vertex.y_voxel + min_y) * voxel_res) - 1;
-        vertex.z_model =  ((vertex.z_voxel + min_z) * voxel_res) -1;
-
-    }
+//    void model_to_voxel(Vertex &vertex, float min_x, float min_y, float min_z) const {
+//        vertex.x_voxel = static_cast<unsigned int>(std::floor((vertex.x - min_x) / voxel_res)) + 1;
+//        vertex.y_voxel = static_cast<unsigned int>(std::floor((vertex.y - min_y) / voxel_res)) + 1;
+//        vertex.z_voxel = static_cast<unsigned int>(std::floor((vertex.z - min_z) / voxel_res)) + 1;
+//    }
+//
+//    void voxel_to_model(Vertex& vertex, float min_x, float min_y, float min_z) const {
+//        vertex.x_model =  ((vertex.x_voxel + min_x) * voxel_res) - 1;
+//        vertex.y_model =  ((vertex.y_voxel + min_y) * voxel_res) - 1;
+//        vertex.z_model =  ((vertex.z_voxel + min_z) * voxel_res) -1;
+//
+//    }
 
 };
 
@@ -130,9 +128,6 @@ int main(int argc, const char *argv[]) {
         } else if (line_type == "v") {
             Vertex vertex{};
             line_stream >> vertex.x >> vertex.y >> vertex.z;
-            vertex.ptx = Point_3(vertex.x, 0.0f, 0.0f);
-            vertex.pty = Point_3(0.0f, vertex.y, 0.0f);
-            vertex.ptz = Point_3(0.0f, 0.0f, vertex.z);
             current_object.object_vertices.push_back(vertex);
             model.model_vertices.push_back(vertex);
         } else if (line_type == "vn") {
@@ -152,7 +147,6 @@ int main(int argc, const char *argv[]) {
             current_object.object_faces.push_back(face);
         }
     }
-
     // creating the triangles
     vector<Triangle_3> triangles;
     for (const auto &object : model.objects) {
@@ -161,25 +155,19 @@ int main(int argc, const char *argv[]) {
             if (face.face_vertex_indices.size() != 3) {
                 cerr << "Error: The input should be triangulated." << endl;
             }
-            // get the indices
-            int index1 = face.face_vertex_indices[0];
-            int index2 = face.face_vertex_indices[1];
-            int index3 = face.face_vertex_indices[2];
 
             // get the coordinates
-            Vertex vertex1 = model.model_vertices[index1];
-            Vertex vertex2 = model.model_vertices[index2];
-            Vertex vertex3 = model.model_vertices[index3];
+            Vertex vertex1 = model.model_vertices[face.face_vertex_indices[0]];
+            Vertex vertex2 = model.model_vertices[face.face_vertex_indices[1]];
+            Vertex vertex3 = model.model_vertices[face.face_vertex_indices[2]];
 
             Point_3 p1(vertex1.x, vertex1.y, vertex1.z);
             Point_3 p2(vertex2.x, vertex2.y, vertex2.z);
             Point_3 p3(vertex3.x, vertex3.y, vertex3.z);
             Triangle_3 triangle(p1, p2, p3);
-//            cout << "Triangle: " << triangle << endl;
             triangles.push_back(triangle);
         }
     }
-
 
 
     // add the last object
@@ -211,73 +199,19 @@ int main(int argc, const char *argv[]) {
 
     float resolution = 0.5;
 
-    // calc num of voxels - resolution 0.5m
+    // calc num of voxels
     auto rows_x = static_cast<unsigned int>(std::ceil(space_dim_x / resolution)) + 2;
     auto rows_y = static_cast<unsigned int>(std::ceil(space_dim_y / resolution)) + 2;
     auto rows_z = static_cast<unsigned int>(std::ceil(space_dim_z / resolution)) + 2;
 
     VoxelGrid my_building_grid(rows_x, rows_y, rows_z);
-
-    // allign model to voxel grid
     my_building_grid.voxel_res = resolution;
-
-//    Vertex vertex1;
-//    for (auto &vertex: model.model_vertices) {
-//        cout << "Original Vertex: (" << vertex.x << ", " << vertex.y << ", " << vertex.z << ")" << endl;
-//        my_building_grid.model_to_voxel(vertex, min_x, min_y, min_z);
-//
-//        cout << "Voxel Vertex: (" << vertex.x_voxel << ", " << vertex.y_voxel << ", " << vertex.z_voxel
-//             << ")" << endl;
-//
-//        float voxelMinX = vertex.x;
-//        float voxelMinY = vertex.y;
-//        float voxelMinZ = vertex.z;
-//        float voxelMaxX = voxelMinX + resolution;
-//        float voxelMaxY = voxelMinY + resolution;
-//        float voxelMaxZ = voxelMinZ + resolution;
-//
-//        // Define voxel vertices
-//        Point_3 v0(voxelMinX, voxelMinY, voxelMinZ);
-//        Point_3 v1(voxelMaxX, voxelMinY, voxelMinZ);
-//        Point_3 v2(voxelMaxX, voxelMaxY, voxelMinZ);
-//        Point_3 v3(voxelMinX, voxelMaxY, voxelMinZ);
-//        Point_3 v4(voxelMinX, voxelMinY, voxelMaxZ);
-//        Point_3 v5(voxelMaxX, voxelMinY, voxelMaxZ);
-//        Point_3 v6(voxelMaxX, voxelMaxY, voxelMaxZ);
-//        Point_3 v7(voxelMinX, voxelMaxY, voxelMaxZ);
-//
-//        // adds 26-connectivity
-//        float voxel_cent_x = vertex.x + (0.5 * resolution);
-//        float voxel_cent_y = vertex.y + (0.5 * resolution);
-//        float voxel_cent_z = vertex.z + (0.5 * resolution);
-//        Line_3 l1(Point_3(voxel_cent_x, vertex.y + resolution, voxel_cent_z),
-//                  Point_3(voxel_cent_x, vertex.y, voxel_cent_z));
-//        Line_3 l2(Point_3(voxel_cent_x, voxel_cent_y, vertex.z + resolution),
-//                  Point_3(voxel_cent_x, voxel_cent_y, vertex.z));
-//        Line_3 l3(Point_3(vertex.x + resolution, voxel_cent_y, voxel_cent_z),
-//                  Point_3(vertex.x, voxel_cent_y, voxel_cent_z));
-//
-//        // Define the 12 edges of the voxel
-//        Line_3 edges[15] = {
-//                Line_3(v0, v1), Line_3(v1, v2), Line_3(v2, v3), Line_3(v3, v0), // Bottom face
-//                Line_3(v4, v5), Line_3(v5, v6), Line_3(v6, v7), Line_3(v7, v4), // Top face
-//                Line_3(v0, v4), Line_3(v1, v5), Line_3(v2, v6), Line_3(v3, v7),  // Connecting edges
-//                l1, l2, l3 //26-connectivity
-//        };
-//
-//        for (auto triangle : triangles) {
-//            for (auto edge : edges){
-//                if (CGAL::do_intersect(triangle, edge)){
-//                    my_building_grid(vertex.x_voxel, vertex.y_voxel, vertex.z_voxel) = 1;
-//            }
-//        }
-//        }
-//    }
-
 
 
     for (auto triangle : triangles) {
         cout <<triangle<<endl;
+        // create the bbox of the triangle
+        CGAL::Bbox_3 bbox = triangle.bbox();
         // iterate over the voxels, starting at the (1,1,1) because of the empty boundary
         for (unsigned int x = 1; x < rows_x - 1; ++x) {
             for (unsigned int y = 1; y < rows_y - 1; ++y) {
@@ -289,6 +223,7 @@ int main(int argc, const char *argv[]) {
                     float voxelMaxY = voxelMinY + resolution;
                     float voxelMaxZ = voxelMinZ + resolution;
 
+                    CGAL::Bbox_3 voxel_bbox(voxelMinX, voxelMinY, voxelMinZ, voxelMaxX, voxelMaxY, voxelMaxZ);
 
                     Point_3 v0(voxelMinX, voxelMinY, voxelMinZ);
                     Point_3 v1(voxelMaxX, voxelMinY, voxelMinZ);
@@ -299,15 +234,19 @@ int main(int argc, const char *argv[]) {
                     Point_3 v6(voxelMaxX, voxelMaxY, voxelMaxZ);
                     Point_3 v7(voxelMinX, voxelMaxY, voxelMaxZ);
 
+
                     Line_3 edges[12] = {
                             Line_3(v0, v1), Line_3(v1, v2), Line_3(v2, v3), Line_3(v3, v0), // Bottom face
                             Line_3(v4, v5), Line_3(v5, v6), Line_3(v6, v7), Line_3(v7, v4), // Top face
                             Line_3(v0, v4), Line_3(v1, v5), Line_3(v2, v6), Line_3(v3, v7)  // Connecting edges
                     };
 
+                    // check if the bounding boxes intersect
+                    if (!CGAL::do_overlap(bbox, voxel_bbox))
+                        continue;
 
 
-                    for (auto edge : edges) {
+                    for (auto edge: edges) {
                         if (CGAL::do_intersect(triangle, edge)) {
                             my_building_grid(x, y, z) = 1;
                             break;
@@ -363,3 +302,8 @@ int main(int argc, const char *argv[]) {
 
     return 0;
 };
+
+
+
+
+
