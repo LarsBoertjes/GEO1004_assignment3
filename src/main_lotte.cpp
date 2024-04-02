@@ -245,9 +245,8 @@ int main(int argc, const char *argv[]) {
                     if (!CGAL::do_overlap(bbox, voxel_bbox))
                         continue;
 
-
                     for (auto edge: edges) {
-                        if (CGAL::do_intersect(triangle, edge)) {
+                        if (CGAL::do_intersect(triangle, voxel_bbox)) {
                             my_building_grid(x, y, z) = 1;
                             break;
                         }
