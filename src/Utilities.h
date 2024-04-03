@@ -4,18 +4,22 @@
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include "ObjModel.h"
 #include <string>
+#include <CGAL/AABB_tree.h>
+#include <CGAL/AABB_traits.h>
+#include <CGAL/AABB_triangle_primitive.h>
+#include <vector>
 
 using namespace std;
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-typedef K::Segment_3 Segment3;
 typedef K::Triangle_3 Triangle3;
 typedef K::Point_3 Point3;
 
 ObjModel readObjFile(const std::string& filePath);
 void printModelInfo(const ObjModel& model, bool printGroupDetails);
-bool doesIntersect(const Triangle& triangle, const VoxelGrid& grid, unsigned int x, unsigned int y, unsigned int z);
-void voxeliseModel(ObjModel& model, VoxelGrid& voxelGrid);
+std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const ObjModel& model);
+void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &trianglesGrid,
+              const ObjModel &model, VoxelGrid& voxelGrid);
 
 ObjModel readObjFile(const string& filePath) {
     // Read in ObjFile to Struct:
@@ -119,65 +123,70 @@ void assignMinMax(ObjModel& model) {
     }
 }
 
-bool doesIntersect(const Triangle3& triangle, const VoxelGrid& grid, unsigned int x, unsigned int y, unsigned int z) {
-    // Define voxel corners in model coordinates
-    float voxelMinX = x * grid.resolution;
-    float voxelMinY = y * grid.resolution;
-    float voxelMinZ = z * grid.resolution;
-    float voxelMaxX = voxelMinX + grid.resolution;
-    float voxelMaxY = voxelMinY + grid.resolution;
-    float voxelMaxZ = voxelMinZ + grid.resolution;
+std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const ObjModel& model) {
+    vector<Triangle3> trianglesModelCoordinates;
+    vector<Triangle3> trianglesGridCoordinates;
 
-    // Define voxel vertices
-    Point3 v0(voxelMinX, voxelMinY, voxelMinZ);
-    Point3 v1(voxelMaxX, voxelMinY, voxelMinZ);
-    Point3 v2(voxelMaxX, voxelMaxY, voxelMinZ);
-    Point3 v3(voxelMinX, voxelMaxY, voxelMinZ);
-    Point3 v4(voxelMinX, voxelMinY, voxelMaxZ);
-    Point3 v5(voxelMaxX, voxelMinY, voxelMaxZ);
-    Point3 v6(voxelMaxX, voxelMaxY, voxelMaxZ);
-    Point3 v7(voxelMinX, voxelMaxY, voxelMaxZ);
+    for (const auto &group : model.groups) {
+        for (const auto &face : group.groupFaces) {
+            // Check if the face is a triangle
+            if (face.vertexIndices.size() != 3) {
+                cerr << "Error: The input should be triangulated." << endl;
+            }
+            // Get the object coordinates
+            Vertex v1 = model.vertices[face.vertexIndices[0]];
+            Vertex v2 = model.vertices[face.vertexIndices[1]];
+            Vertex v3 = model.vertices[face.vertexIndices[2]];
 
-    // Define the 12 edges of the voxel
-    Segment3 edges[12] = {
-            Segment3(v0, v1), Segment3(v1, v2), Segment3(v2, v3), Segment3(v3, v0), // Bottom face
-            Segment3(v4, v5), Segment3(v5, v6), Segment3(v6, v7), Segment3(v7, v4), // Top face
-            Segment3(v0, v4), Segment3(v1, v5), Segment3(v2, v6), Segment3(v3, v7)  // Connecting edges
-    };
+            // Construct the triangle
+            Point3 p1(v1.x, v1.y, v1.z);
+            Point3 p2(v2.x, v2.y, v2.z);
+            Point3 p3(v3.x, v3.y, v3.z);
+            Triangle3 triangle(p1, p2, p3);
+            trianglesModelCoordinates.push_back(triangle);
 
-    for (auto& edge : edges) {
-        if (CGAL::do_intersect(triangle, edge)) {
-            return true;
+            // Get the grid coordinates
+            Vertex vg1 = model.model_vertices[face.vertexIndices[0]];
+            Vertex vg2 = model.model_vertices[face.vertexIndices[1]];
+            Vertex vg3 = model.model_vertices[face.vertexIndices[2]];
+
+            // Construct the triangle
+            Point3 pg1(vg1.x, vg1.y, vg1.z);
+            Point3 pg2(vg2.x, vg2.y, vg2.z);
+            Point3 pg3(vg3.x, vg3.y, vg3.z);
+            Triangle3 triangleGrid(pg1, pg2, pg3);
+            trianglesGridCoordinates.push_back(triangleGrid);
         }
     }
-    return false;
+
+    return std::make_pair(trianglesModelCoordinates, trianglesGridCoordinates);
 }
 
+void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &trianglesGrid,
+              const ObjModel &model, VoxelGrid& voxelGrid) {
+    // Iterate over all triangles and check with which voxels they overlap
+    // Mark the voxel als occupied if intersects
 
-void voxeliseModel(ObjModel& model, VoxelGrid& voxelGrid) {
-    for (const auto& group : model.groups) {
-        for (const auto& face : group.groupFaces) {
-            // Populate triangle.vertices from face.vertexIndices and model.vertices
-            Point3 v0(model.model_vertices[face.vertexIndices[0]].x, model.model_vertices[face.vertexIndices[0]].y, model.model_vertices[face.vertexIndices[0]].z);
-            Point3 v1(model.model_vertices[face.vertexIndices[1]].x, model.model_vertices[face.vertexIndices[1]].y, model.model_vertices[face.vertexIndices[1]].z);
-            Point3 v2(model.model_vertices[face.vertexIndices[2]].x, model.model_vertices[face.vertexIndices[2]].y, model.model_vertices[face.vertexIndices[2]].z);
+    for (int i = 0; i < trianglesModel.size(); ++i) {
+        CGAL::Bbox_3 bboxTriangleModel = trianglesModel[i].bbox();
+        CGAL::Bbox_3 bboxTriangleGrid = trianglesGrid[i].bbox();
 
-            // Calculate bounding box in voxel grid coordinates
-            unsigned int minX = std::min({v0.x(), v1.x(), v2.x()});
-            unsigned int minY = std::min({v0.y(), v1.y(), v2.y()});
-            unsigned int minZ = std::min({v0.z(), v1.z(), v2.z()});
-            unsigned int maxX = std::max({v0.x(), v1.x(), v2.x()});
-            unsigned int maxY = std::max({v0.y(), v1.y(), v2.y()});
-            unsigned int maxZ = std::max({v0.z(), v1.z(), v2.z()});
+        for (int x = bboxTriangleGrid.xmin(); x < bboxTriangleGrid.xmax() + 1; ++x) {
+            for (int y = bboxTriangleGrid.ymin(); y < bboxTriangleGrid.ymax() + 1; ++y) {
+                for (int z = bboxTriangleGrid.zmin(); z < bboxTriangleGrid.zmax() + 1; ++z) {
+                    float resolution = voxelGrid.resolution;
 
-            Triangle3 triangle(v0, v1, v2);
+                    float voxelMinX = model.min_x + x * resolution;
+                    float voxelMinY = model.min_y + y * resolution;
+                    float voxelMinZ = model.min_z + z * resolution;
+                    float voxelMaxX = voxelMinX + resolution;
+                    float voxelMaxY = voxelMinY + resolution;
+                    float voxelMaxZ = voxelMinZ + resolution;
 
-            for (unsigned int x = minX; x <= maxX; ++x) {
-                for (unsigned int y = minY; y <= maxY; ++y) {
-                    for (unsigned int z = minZ; z <= maxZ; ++z) {
-                        if (doesIntersect(triangle, voxelGrid, x, y, z)) {
-                            voxelGrid(x, y, z) = 1; // Mark voxel as occupied
-                        }
+                    CGAL::Bbox_3 voxel_bbox(voxelMinX, voxelMinY, voxelMinZ, voxelMaxX, voxelMaxY, voxelMaxZ);
+
+                    if (CGAL::do_intersect(trianglesModel[i], voxel_bbox)) {
+                        voxelGrid(x + 1, y + 1, z + 1) = 1;
                     }
                 }
             }

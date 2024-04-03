@@ -33,6 +33,8 @@ int main(int argc, const char * argv[]) {
     float bbY = model.max_y - model.min_y;
     float bbZ = model.max_z - model.min_z;
 
+    cout << "Size: " << bbX << " * " << bbY << " * " << bbZ << endl;
+
     // Step 3: Construct the voxel grid
     // Set the resolution
     float resolution = 0.5;
@@ -57,25 +59,31 @@ int main(int argc, const char * argv[]) {
     }
 
     // Step 4: Voxelise the grid
-    // I want to use the functions here!
-    voxeliseModel(model, voxelGrid);
+    // Get the triangle faces from the model
+    vector<Triangle3> trianglesModelCoordinates = extractTriangles(model).first;
+    vector<Triangle3> trianglesGridCoordinates = extractTriangles(model).second;
+
+    cout << "Number of triangles to test for intersection: " << trianglesModelCoordinates.size() << endl;
+    cout << "Number of triangles to test for intersection: " << trianglesGridCoordinates.size() << endl;
+
+    // Checking triangle intersection with VoxelGrid
+    markGrid(trianglesModelCoordinates, trianglesGridCoordinates, model, voxelGrid);
 
 
-    // Testing to print first layer
+
+    // Testing to print layers
     cout << "Printing grid layer z = 0 " << endl;
-    for (int i = 0; i < num_rows_x; ++i) {
+    for (int z = 0; z < num_rows_z; ++z) {
         for (int j = 0; j < num_rows_y; ++j) {
-            unsigned int v = voxelGrid(i, j, 0);
-            cout << v << " ";
+            for (int i = 0; i < num_rows_x; ++i) {
+                unsigned int v = voxelGrid(i, j, z);
+                cout << v << " ";
+            }
+            cout << endl;
         }
         cout << endl;
+        cout << "---------------" << endl;
     }
-
-    cout << "-----------------------" << endl;
-
-
-
-
 
     return 0;
 }

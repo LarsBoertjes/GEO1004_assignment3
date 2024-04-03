@@ -10,9 +10,6 @@ struct VoxelGrid {
     // unsigned int v = my_building_grid(x,y,z)
     // my_building_grid(x,y,z) = 1
 
-    // -- Add functions like:
-    // translate from the model's coordinates to integer coordinates of the voxel grid and vice versa
-
     std::vector<unsigned int> voxels;
     unsigned int max_x, max_y, max_z;
     float resolution;
