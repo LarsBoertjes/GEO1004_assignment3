@@ -14,6 +14,7 @@
 #include <CGAL/Triangulation_face_base_with_info_2.h>
 #include <CGAL/linear_least_squares_fitting_3.h>
 #include <CGAL/intersections.h>
+#include <stack>
 
 using namespace std;
 typedef CGAL::Exact_predicates_inexact_constructions_kernel Kernel;
@@ -53,6 +54,7 @@ struct Model {
     vector<Vertex> model_vertices;
 };
 
+
 struct VoxelGrid {
     std::vector<unsigned int> voxels;
     unsigned int max_x, max_y, max_z;
@@ -81,6 +83,37 @@ struct VoxelGrid {
         return voxels[x + y * max_x + z * max_x * max_y];
     }
 
+    void label_voxels(VoxelGrid& voxel_grid, vector<int> start, int label, unsigned int nrows_x, unsigned int nrows_y, unsigned int nrows_z) {
+        stack<vector<int>> to_check;
+        to_check.push(start);
+        const std::vector<std::vector<int>> neighbours = {{1,  0,  0},
+                                                          {-1, 0,  0},
+                                                          {0,  1,  0},
+                                                          {0,  -1, 0},
+                                                          {0,  0,  1},
+                                                          {0,  0,  -1}};
+        while (!to_check.empty()) {
+            vector<int> current_vox = to_check.top();
+            to_check.pop();
+            int x = current_vox[0], y = current_vox[1], z = current_vox[2];
+            if (voxel_grid(x, y, z) == 0) {
+                voxel_grid(x, y, z) = label;
+                for (const auto &neighbour: neighbours) {
+                    int nx = x + neighbour[0];
+                    int ny = y + neighbour[1];
+                    int nz = z + neighbour[2];
+                    // Check bounds
+                    if (nx >= 0 && nx < nrows_x && ny >= 0 && ny < nrows_y && nz >= 0 && nz < nrows_z &&
+                        voxel_grid(nx, ny, nz) == 0) {
+                        to_check.push({nx, ny, nz});
+                    }
+                }
+
+            }
+        }
+    };
+
+
 //    void model_to_voxel(Vertex &vertex, float min_x, float min_y, float min_z) const {
 //        vertex.x_voxel = static_cast<unsigned int>(std::floor((vertex.x - min_x) / voxel_res)) + 1;
 //        vertex.y_voxel = static_cast<unsigned int>(std::floor((vertex.y - min_y) / voxel_res)) + 1;
@@ -101,7 +134,7 @@ float roundtotwo(float num) {
 }
 
 int main(int argc, const char *argv[]) {
-    const char *filename = (argc > 1) ? argv[1] : "../data/openhouse.obj";
+    const char *filename = (argc > 1) ? argv[1] : "../data/IfcOpenHouse_IFC2x3.obj";
     cout << "Processing: " << filename << endl;
 
     ifstream input_stream(filename);
@@ -197,7 +230,7 @@ int main(int argc, const char *argv[]) {
     float space_dim_y = (max_y - min_y);
     float space_dim_z = (max_z - min_z);
 
-    float resolution = 0.5;
+    float resolution = 0.4;
 
     // calc num of voxels
     auto rows_x = static_cast<unsigned int>(std::ceil(space_dim_x / resolution)) + 2;
@@ -207,7 +240,7 @@ int main(int argc, const char *argv[]) {
     VoxelGrid my_building_grid(rows_x, rows_y, rows_z);
     my_building_grid.voxel_res = resolution;
 
-    
+
     for (auto triangle : triangles) {
         cout <<triangle<<endl;
         // create the bbox of the triangle
@@ -233,6 +266,22 @@ int main(int argc, const char *argv[]) {
                     if (CGAL::do_intersect(triangle, voxel_bbox)) {
                         my_building_grid(x, y, z) = 1;
                     }
+                }
+            }
+        }
+    }
+
+    //step 5
+    //outside
+    my_building_grid.label_voxels(my_building_grid, {0,  0,  0}, 2, rows_x, rows_y, rows_z );
+    //inside
+    int room_id = 3;
+    for (int x = 1; x < rows_x - 1; ++x) {
+        for (int y = 1; y < rows_y - 1; ++y) {
+            for (int z = 1; z < rows_z - 1; ++z) {
+                if (my_building_grid(x, y, z) == 0) {
+                    my_building_grid.label_voxels(my_building_grid, {x, y, z}, 3, rows_x, rows_y, rows_z);
+                    room_id++;
                 }
             }
         }
