@@ -134,7 +134,7 @@ float roundtotwo(float num) {
 }
 
 int main(int argc, const char *argv[]) {
-    const char *filename = (argc > 1) ? argv[1] : "../data/IfcOpenHouse_IFC2x3.obj";
+    const char *filename = (argc > 1) ? argv[1] : "../data/IfcOpenHouse_IFC4.obj";
     cout << "Processing: " << filename << endl;
 
     ifstream input_stream(filename);
@@ -211,12 +211,12 @@ int main(int argc, const char *argv[]) {
     // The voxel grid
 
     // get the dimensions of the space
-    float min_x = std::numeric_limits<float>::max();
-    float max_x = -std::numeric_limits<float>::max();
-    float min_y = std::numeric_limits<float>::max();
-    float max_y = -std::numeric_limits<float>::max();
-    float min_z = std::numeric_limits<float>::max();
-    float max_z = -std::numeric_limits<float>::max();
+    float min_x = numeric_limits<float>::max();
+    float max_x = -numeric_limits<float>::max();
+    float min_y = numeric_limits<float>::max();
+    float max_y = -numeric_limits<float>::max();
+    float min_z = numeric_limits<float>::max();
+    float max_z = -numeric_limits<float>::max();
     for (auto &vertex: model.model_vertices) {
         if (vertex.x < min_x) min_x = vertex.x;
         if (vertex.x > max_x) max_x = vertex.x;
@@ -230,7 +230,7 @@ int main(int argc, const char *argv[]) {
     float space_dim_y = (max_y - min_y);
     float space_dim_z = (max_z - min_z);
 
-    float resolution = 0.4;
+    float resolution = 0.5;
 
     // calc num of voxels
     auto rows_x = static_cast<unsigned int>(std::ceil(space_dim_x / resolution)) + 2;
@@ -242,13 +242,12 @@ int main(int argc, const char *argv[]) {
 
 
     for (auto triangle : triangles) {
-        cout <<triangle<<endl;
         // create the bbox of the triangle
         CGAL::Bbox_3 bbox = triangle.bbox();
         // iterate over the voxels, starting at the (1,1,1) because of the empty boundary
-        for (unsigned int x = 1; x < rows_x - 1; ++x) {
-            for (unsigned int y = 1; y < rows_y - 1; ++y) {
-                for (unsigned int z = 1; z < rows_z - 1; ++z) {
+        for (unsigned int x = 0; x < rows_x; ++x) {
+            for (unsigned int y = 0; y < rows_y ; ++y) {
+                for (unsigned int z = 0; z < rows_z ; ++z) {
                     float voxelMinX = min_x + (x - 1) * resolution;
                     float voxelMinY = min_y + (y - 1) * resolution;
                     float voxelMinZ = min_z + (z - 1) * resolution;
@@ -276,11 +275,11 @@ int main(int argc, const char *argv[]) {
     my_building_grid.label_voxels(my_building_grid, {0,  0,  0}, 2, rows_x, rows_y, rows_z );
     //inside
     int room_id = 3;
-    for (int x = 1; x < rows_x - 1; ++x) {
-        for (int y = 1; y < rows_y - 1; ++y) {
-            for (int z = 1; z < rows_z - 1; ++z) {
+    for (int x = 0; x < rows_x; ++x) {
+        for (int y = 0; y < rows_y; ++y) {
+            for (int z = 0; z < rows_z; ++z) {
                 if (my_building_grid(x, y, z) == 0) {
-                    my_building_grid.label_voxels(my_building_grid, {x, y, z}, 3, rows_x, rows_y, rows_z);
+                    my_building_grid.label_voxels(my_building_grid, {x, y, z}, room_id, rows_x, rows_y, rows_z);
                     room_id++;
                 }
             }
@@ -309,8 +308,10 @@ int main(int argc, const char *argv[]) {
 
     cout << "Voxel Grid Indices:" << endl;
     for (unsigned int z = 0; z < my_building_grid.max_z; ++z) {
+        cout << z <<endl;
         for (unsigned int y = 0; y < my_building_grid.max_y; ++y) {
             for (unsigned int x = 0; x < my_building_grid.max_x; ++x) {
+
                 cout << "(" << my_building_grid(x, y, z) << ") ";
             }
             cout << endl;
