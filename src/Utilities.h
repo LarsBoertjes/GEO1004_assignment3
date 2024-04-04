@@ -8,6 +8,7 @@
 #include <CGAL/AABB_traits.h>
 #include <CGAL/AABB_triangle_primitive.h>
 #include <vector>
+#include <stack>
 
 using namespace std;
 
@@ -192,6 +193,50 @@ void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &
             }
         }
     }
+}
+
+void markSpace(VoxelGrid& voxelGrid, vector<int> start, int label, int nrows_x, int nrows_y, int nrows_z) {
+    // Initialize stack with voxels to check
+    queue<vector<int>> to_check;
+    to_check.push(start);
+
+    // Neighbors of starting voxel
+    const std::vector<std::vector<int>> neighbours = {{1,  0,  0},
+                                                      {-1, 0,  0},
+                                                      {0,  1,  0},
+                                                      {0,  -1, 0},
+                                                      {0,  0,  1},
+                                                      {0,  0,  -1}};
+
+    // Until the stack is empty
+    while (!to_check.empty()) {
+        // Check current voxel which is on top of stack
+        vector<int> current_vox = to_check.front();
+        to_check.pop();
+        int x = current_vox[0], y = current_vox[1], z = current_vox[2];
+        // If the voxel is not marked yet, label it
+        if (voxelGrid(x, y, z) == 0) {
+            voxelGrid(x, y, z) = label;
+
+            //
+            for (const vector<int> &neighbour : neighbours) {
+                int nx = x + neighbour[0];
+                int ny = y + neighbour[1];
+                int nz = z + neighbour[2];
+
+                // Make sure to work within bounds
+                if (nx >= 0 && nx < nrows_x && ny >= 0 && ny < nrows_y && nz >= 0 && nz < nrows_z &&
+                    voxelGrid(nx, ny, nz) == 0) {
+                    // If the neighbour is within bounds and still unmarked, push to to_check
+                    to_check.push({nx, ny, nz});
+                }
+            }
+        }
+
+    }
+
+
+
 }
 
 #endif //GEO1004_ASSIGNMENT3_UTILITIES_H
