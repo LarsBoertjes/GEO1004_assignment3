@@ -36,6 +36,16 @@ struct ObjModel {
     float min_x = std::numeric_limits<float>::max(), max_x = std::numeric_limits<float>::lowest();
     float min_y = std::numeric_limits<float>::max(), max_y = std::numeric_limits<float>::lowest();
     float min_z = std::numeric_limits<float>::max(), max_z = std::numeric_limits<float>::lowest();
+
+    // Function to add new vertex to the model
+    int addVertex(float x, float y, float z) {
+        Vertex vertex;
+        vertex.x = x;
+        vertex.y = y;
+        vertex.z = z;
+        vertices.emplace_back(vertex);
+        return vertices.size() - 1;
+    }
 };
 
 

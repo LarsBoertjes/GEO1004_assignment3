@@ -232,12 +232,87 @@ void markSpace(VoxelGrid& voxelGrid, vector<int> start, int label, int nrows_x, 
                 }
             }
         }
-
     }
-
-
-
 }
+
+vector<Face> extractOuterEnvelope(const VoxelGrid &voxelGrid, ObjModel &model, float resolution) {
+    vector<Face> outerEnvelopeFaces;
+
+    for (int x = 0; x < voxelGrid.nrows_x; ++x) {
+        for (int y = 0; y < voxelGrid.nrows_y; ++y) {
+            for (int z = 0; z < voxelGrid.nrows_z; ++z) {
+                if (voxelGrid(x, y, z) == 1) {
+
+                    // Get voxel information
+                    float voxelMinX = model.min_x + x * resolution;
+                    float voxelMinY = model.min_y + y * resolution;
+                    float voxelMinZ = model.min_z + z * resolution;
+                    float voxelMaxX = voxelMinX + resolution;
+                    float voxelMaxY = voxelMinY + resolution;
+                    float voxelMaxZ = voxelMinZ + resolution;
+
+                    // Get neighbour coordinates
+                    vector<vector<int>> neighbours = {{x + 1, y, z},
+                                                      {x - 1, y, z},
+                                                      {x, y + 1, z},
+                                                      {x, y - 1, z},
+                                                      {x, y, z + 1},
+                                                      {x, y, z - 1}};
+
+                    for (const auto &neighbour : neighbours) {
+                        int nx = neighbour[0];
+                        int ny = neighbour[1];
+                        int nz = neighbour[2];
+                        if (voxelGrid(nx, ny, nz) == 2) {
+                            // Determine face coordinates based on the relative position of the neighbour
+                            if (nx > x) {
+                                // Neighbor is on the right
+                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMaxX, voxelMinY, voxelMinZ),
+                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMinZ),
+                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMaxZ),
+                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMaxZ)}});
+                            } else if (nx < x) {
+                                // Neighbor is on the left
+                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMinZ),
+                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMinZ),
+                                                               model.addVertex(voxelMinX, voxelMinY, voxelMaxZ),
+                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMaxZ)}});
+                            } else if (ny > y) {
+                                // Neighbor is in front
+                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMaxY, voxelMinZ),
+                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMinZ),
+                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMaxZ),
+                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMaxZ)}});
+                            } else if (ny < y) {
+                                // Neighbor is behind
+                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMinZ),
+                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMinZ),
+                                                               model.addVertex(voxelMinX, voxelMinY, voxelMaxZ),
+                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMaxZ)}});
+                            } else if (nz > z) {
+                                // Neighbor is on top
+                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMaxZ),
+                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMaxZ),
+                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMaxZ),
+                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMaxZ)}});
+                            } else if (nz < z) {
+                                // Neighbor is below
+                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMinZ),
+                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMinZ),
+                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMinZ),
+                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMinZ)}});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return outerEnvelopeFaces;
+}
+
+
+
 
 #endif //GEO1004_ASSIGNMENT3_UTILITIES_H
 

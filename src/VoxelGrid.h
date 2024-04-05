@@ -9,15 +9,19 @@ struct VoxelGrid {
     // VoxelGrid my_building_grid(rows_x, rows_y, rows_z)
     // unsigned int v = my_building_grid(x,y,z)
     // my_building_grid(x,y,z) = 1
-
     std::vector<unsigned int> voxels;
     unsigned int max_x, max_y, max_z;
+    int nrows_x, nrows_y, nrows_z;
     float resolution;
 
     VoxelGrid(unsigned int x, unsigned int y, unsigned int z) {
         max_x = x;
         max_y = y;
         max_z = z;
+        nrows_x = x;
+        nrows_y = y;
+        nrows_z = z;
+
         unsigned int total_voxels = x*y*z;
         voxels.reserve(total_voxels);
         for (unsigned int i = 0; i < total_voxels; ++i) voxels.push_back(0);
@@ -50,7 +54,6 @@ struct VoxelGrid {
 
         return voxelVertex;
     }
-
 };
 
 #endif //GEO1004_ASSIGNMENT3_VOXELGRID_H

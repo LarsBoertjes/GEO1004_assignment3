@@ -99,5 +99,17 @@ int main(int argc, const char * argv[]) {
         cout << "---------------" << endl;
     }
 
+    vector<Face> outerEnvelopeFaces = extractOuterEnvelope(voxelGrid, model, resolution);
+    cout << "Number of outerEnvelopeFaces: " << outerEnvelopeFaces.size() << endl;
+
+    // Prints the vertexIndices of the first 3 outerEvelopeFaces
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            cout << outerEnvelopeFaces[i].vertexIndices[j] << endl;
+        }
+        cout << endl;
+    }
+
+
     return 0;
 }
