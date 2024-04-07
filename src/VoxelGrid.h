@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cassert>
+#include "ObjModel.h"
 
 struct VoxelGrid {
     // -- This structure can be used in the following way:

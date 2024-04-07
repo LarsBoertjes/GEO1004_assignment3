@@ -15,6 +15,7 @@ struct Normal {
 struct Face {
     std::vector<int> vertexIndices;
     std::vector<int> normalIndices;
+    std::string name;
 };
 
 struct Triangle {
@@ -26,6 +27,12 @@ struct Group {
     int smoothingParameter = 0;
     std::string usemtl;
     std::string groupname;
+
+    // Added following for removal of street
+    float boundingBox;
+    float min_x = std::numeric_limits<float>::max(), max_x = std::numeric_limits<float>::lowest();
+    float min_y = std::numeric_limits<float>::max(), max_y = std::numeric_limits<float>::lowest();
+    float min_z = std::numeric_limits<float>::max(), max_z = std::numeric_limits<float>::lowest();
 };
 
 struct ObjModel {

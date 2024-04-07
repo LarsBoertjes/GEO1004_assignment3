@@ -3,12 +3,14 @@
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include "ObjModel.h"
+#include "VoxelGrid.h"
 #include <string>
 #include <CGAL/AABB_tree.h>
 #include <CGAL/AABB_traits.h>
 #include <CGAL/AABB_triangle_primitive.h>
 #include <vector>
 #include <stack>
+
 
 using namespace std;
 
@@ -235,83 +237,191 @@ void markSpace(VoxelGrid& voxelGrid, vector<int> start, int label, int nrows_x, 
     }
 }
 
-vector<Face> extractOuterEnvelope(const VoxelGrid &voxelGrid, ObjModel &model, float resolution) {
-    vector<Face> outerEnvelopeFaces;
 
-    for (int x = 0; x < voxelGrid.nrows_x; ++x) {
-        for (int y = 0; y < voxelGrid.nrows_y; ++y) {
-            for (int z = 0; z < voxelGrid.nrows_z; ++z) {
-                if (voxelGrid(x, y, z) == 1) {
 
-                    // Get voxel information
-                    float voxelMinX = model.min_x + x * resolution;
-                    float voxelMinY = model.min_y + y * resolution;
-                    float voxelMinZ = model.min_z + z * resolution;
-                    float voxelMaxX = voxelMinX + resolution;
-                    float voxelMaxY = voxelMinY + resolution;
-                    float voxelMaxZ = voxelMinZ + resolution;
+float horizontalBoundingBox(Group &group, ObjModel& model) {
 
-                    // Get neighbour coordinates
-                    vector<vector<int>> neighbours = {{x + 1, y, z},
-                                                      {x - 1, y, z},
-                                                      {x, y + 1, z},
-                                                      {x, y - 1, z},
-                                                      {x, y, z + 1},
-                                                      {x, y, z - 1}};
-
-                    for (const auto &neighbour : neighbours) {
-                        int nx = neighbour[0];
-                        int ny = neighbour[1];
-                        int nz = neighbour[2];
-                        if (voxelGrid(nx, ny, nz) == 2) {
-                            // Determine face coordinates based on the relative position of the neighbour
-                            if (nx > x) {
-                                // Neighbor is on the right
-                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMaxX, voxelMinY, voxelMinZ),
-                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMinZ),
-                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMaxZ),
-                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMaxZ)}});
-                            } else if (nx < x) {
-                                // Neighbor is on the left
-                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMinZ),
-                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMinZ),
-                                                               model.addVertex(voxelMinX, voxelMinY, voxelMaxZ),
-                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMaxZ)}});
-                            } else if (ny > y) {
-                                // Neighbor is in front
-                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMaxY, voxelMinZ),
-                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMinZ),
-                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMaxZ),
-                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMaxZ)}});
-                            } else if (ny < y) {
-                                // Neighbor is behind
-                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMinZ),
-                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMinZ),
-                                                               model.addVertex(voxelMinX, voxelMinY, voxelMaxZ),
-                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMaxZ)}});
-                            } else if (nz > z) {
-                                // Neighbor is on top
-                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMaxZ),
-                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMaxZ),
-                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMaxZ),
-                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMaxZ)}});
-                            } else if (nz < z) {
-                                // Neighbor is below
-                                outerEnvelopeFaces.push_back({{model.addVertex(voxelMinX, voxelMinY, voxelMinZ),
-                                                               model.addVertex(voxelMaxX, voxelMinY, voxelMinZ),
-                                                               model.addVertex(voxelMinX, voxelMaxY, voxelMinZ),
-                                                               model.addVertex(voxelMaxX, voxelMaxY, voxelMinZ)}});
-                            }
-                        }
-                    }
-                }
-            }
+    for (const Face &face : group.groupFaces) {
+        for (int vertex : face.vertexIndices) {
+            if (model.vertices[vertex].x < group.min_x) group.min_x = model.vertices[vertex].x;
+            if (model.vertices[vertex].x > group.max_x) group.max_x = model.vertices[vertex].x;
+            if (model.vertices[vertex].y < group.min_y) group.min_y = model.vertices[vertex].y;
+            if (model.vertices[vertex].y > group.max_y) group.max_y = model.vertices[vertex].y;
         }
     }
-    return outerEnvelopeFaces;
+
+    float boundingBox = ((group.max_x - group.min_x) * (group.max_y - group.min_y));
+
+    return boundingBox;
 }
 
+bool direction_true(const VoxelGrid &grid, int x, int y, int z, string direction, int side) {
+    if (direction == "front") {
+        return grid(x, y + 1, z) == side;
 
+    }
+    if (direction == "back") {
+        return grid(x, y - 1, z) == side;
+
+
+    }
+    if (direction == "right") {
+        return grid(x + 1, y, z) == side;
+
+
+    }
+    if (direction == "left") {
+        return grid(x - 1, y, z) == side;
+
+
+    }
+    if (direction == "up") {
+        return grid(x, y, z + 1) == side;
+    }
+    if (direction == "down") {
+        return grid(x, y, z - 1) == side;
+    }
+
+    return false;
+}
+
+std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
+    std::vector<std::vector<Vertex>> exteriorSurfaces;
+
+    float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
+    float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
+    float voxelMinZ = (model.min_z + z-1 * grid.resolution) - dilationAmount;
+    float voxelMaxX = (voxelMinX + grid.resolution) + dilationAmount;
+    float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
+    float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
+
+
+    if (direction_true(grid, x, y, z, "front", side)) {
+        std::vector<Vertex> frontSurface = {
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ}
+        };
+        exteriorSurfaces.push_back(frontSurface);
+    }
+    if (direction_true(grid, x, y, z, "back", side)) {
+        std::vector<Vertex> backSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMinY, voxelMaxZ}
+        };
+        exteriorSurfaces.push_back(backSurface);
+    }
+    if (direction_true(grid, x, y, z, "right", side)) {
+        std::vector<Vertex> rightSurface = {
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ}
+        };
+        exteriorSurfaces.push_back(rightSurface);
+    }
+    if (direction_true(grid, x, y, z, "left", side)) {
+        std::vector<Vertex> leftSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMinZ}
+        };
+        exteriorSurfaces.push_back(leftSurface);
+    }
+    if (direction_true(grid, x, y, z, "up", side)) {
+        std::vector<Vertex> upSurface = {
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ}
+        };
+        exteriorSurfaces.push_back(upSurface);
+    }
+    if (direction_true(grid, x, y, z, "down", side)) {
+        std::vector<Vertex> downSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ}
+        };
+        exteriorSurfaces.push_back(downSurface);
+    }
+
+    return exteriorSurfaces;
+}
+
+std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
+    std::vector<std::vector<Vertex>> interiorSurfaces;
+
+    float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
+    float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
+    float voxelMinZ = (model.min_z + z-1 * grid.resolution) - dilationAmount;
+    float voxelMaxX = (voxelMinX + grid.resolution) + dilationAmount;
+    float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
+    float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
+
+
+    if (direction_true(grid, x, y, z, "front", side)) {
+        std::vector<Vertex> frontSurface = {
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(frontSurface);
+    }
+    if (direction_true(grid, x, y, z, "back", side)) {
+        std::vector<Vertex> backSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMinY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(backSurface);
+    }
+    if (direction_true(grid, x, y, z, "right", side)) {
+        std::vector<Vertex> rightSurface = {
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(rightSurface);
+    }
+    if (direction_true(grid, x, y, z, "left", side)) {
+        std::vector<Vertex> leftSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMinZ}
+        };
+        interiorSurfaces.push_back(leftSurface);
+    }
+    if (direction_true(grid, x, y, z, "up", side)) {
+        std::vector<Vertex> upSurface = {
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(upSurface);
+    }
+    if (direction_true(grid, x, y, z, "down", side)) {
+        std::vector<Vertex> downSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ}
+        };
+        interiorSurfaces.push_back(downSurface);
+    }
+
+    return interiorSurfaces;
+}
 
 
 #endif //GEO1004_ASSIGNMENT3_UTILITIES_H
