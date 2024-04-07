@@ -97,48 +97,48 @@ ObjModel readObjFile(const string &filePath) {
     return model;
 }
 
-bool direction_true(const VoxelGrid &grid, int x, int y, int z, string direction) {
+bool direction_true(const VoxelGrid &grid, int x, int y, int z, string direction, int side) {
     if (direction == "front") {
-        return grid(x, y + 1, z) == 2;
+        return grid(x, y + 1, z) == side;
 
     }
     if (direction == "back") {
-        return grid(x, y - 1, z) == 2;
+        return grid(x, y - 1, z) == side;
 
 
     }
     if (direction == "right") {
-        return grid(x + 1, y, z) == 2;
+        return grid(x + 1, y, z) == side;
 
 
     }
     if (direction == "left") {
-        return grid(x - 1, y, z) == 2;
+        return grid(x - 1, y, z) == side;
 
 
     }
     if (direction == "up") {
-        return grid(x, y, z + 1) == 2;
+        return grid(x, y, z + 1) == side;
     }
     if (direction == "down") {
-        return grid(x, y, z - 1) == 2;
+        return grid(x, y, z - 1) == side;
     }
 
     return false;
 }
 
-std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model) {
+std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
     std::vector<std::vector<Vertex>> exteriorSurfaces;
 
-    float voxelMinX = model.min_x + x-1 * grid.resolution;
-    float voxelMinY = model.min_y + y-1 * grid.resolution;
-    float voxelMinZ = model.min_z + z-1 * grid.resolution;
-    float voxelMaxX = voxelMinX + grid.resolution;
-    float voxelMaxY = voxelMinY + grid.resolution;
-    float voxelMaxZ = voxelMinZ + grid.resolution;
+    float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
+    float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
+    float voxelMinZ = (model.min_z + z-1 * grid.resolution) - dilationAmount;
+    float voxelMaxX = (voxelMinX + grid.resolution) + dilationAmount;
+    float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
+    float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
 
 
-    if (direction_true(grid, x, y, z, "front")) {
+    if (direction_true(grid, x, y, z, "front", side)) {
         std::vector<Vertex> frontSurface = {
                 {voxelMaxX, voxelMaxY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMinZ},
@@ -147,7 +147,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         };
         exteriorSurfaces.push_back(frontSurface);
     }
-    if (direction_true(grid, x, y, z, "back")) {
+    if (direction_true(grid, x, y, z, "back", side)) {
         std::vector<Vertex> backSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMinY, voxelMinZ},
@@ -156,7 +156,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         };
         exteriorSurfaces.push_back(backSurface);
     }
-    if (direction_true(grid, x, y, z, "right")) {
+    if (direction_true(grid, x, y, z, "right", side)) {
         std::vector<Vertex> rightSurface = {
                 {voxelMaxX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMaxY, voxelMinZ},
@@ -165,7 +165,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         };
         exteriorSurfaces.push_back(rightSurface);
     }
-    if (direction_true(grid, x, y, z, "left")) {
+    if (direction_true(grid, x, y, z, "left", side)) {
         std::vector<Vertex> leftSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMinX, voxelMinY, voxelMaxZ},
@@ -174,7 +174,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         };
         exteriorSurfaces.push_back(leftSurface);
     }
-    if (direction_true(grid, x, y, z, "up")) {
+    if (direction_true(grid, x, y, z, "up", side)) {
         std::vector<Vertex> upSurface = {
                 {voxelMinX, voxelMinY, voxelMaxZ},
                 {voxelMaxX, voxelMinY, voxelMaxZ},
@@ -183,7 +183,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         };
         exteriorSurfaces.push_back(upSurface);
     }
-    if (direction_true(grid, x, y, z, "down")) {
+    if (direction_true(grid, x, y, z, "down", side)) {
         std::vector<Vertex> downSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMinZ},
@@ -196,58 +196,75 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
     return exteriorSurfaces;
 }
 
-void output_to_cityjson(const std::vector<std::vector<Vertex>>& surfaces, const std::string& filename) {
-    nlohmann::json json;
-    json["type"] = "CityJSON";
-    json["version"] = "2.0";
-    json["transform"] = {{"scale", {1.0, 1.0, 1.0}}, {"translate", {0.0, 0.0, 0.0}}};
-    json["CityObjects"] = nlohmann::json::object();
+std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
+    std::vector<std::vector<Vertex>> interiorSurfaces;
 
-    std::vector<std::vector<double>> vertices;
-    std::vector<std::vector<std::vector<int>>> boundaries;
+    float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
+    float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
+    float voxelMinZ = (model.min_z + z-1 * grid.resolution) - dilationAmount;
+    float voxelMaxX = (voxelMinX + grid.resolution) + dilationAmount;
+    float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
+    float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
 
-    for (const auto& surface : surfaces) {
-        std::vector<std::vector<int>> surfaceBoundaries;
-        std::vector<int> polygonBoundary;
-        for (const auto& vertex : surface) {
-            auto it = find(vertices.begin(), vertices.end(), vector<double>{vertex.x, vertex.y, vertex.z});
 
-            if (it == vertices.end()) {
-                vertices.push_back({vertex.x, vertex.y, vertex.z});
-                polygonBoundary.push_back(vertices.size() - 1);
-            } else {
-                polygonBoundary.push_back(distance(vertices.begin(), it));
-            }
-        }
-
-        surfaceBoundaries.push_back(polygonBoundary);
-
-        boundaries.push_back(surfaceBoundaries);
+    if (direction_true(grid, x, y, z, "front", side)) {
+        std::vector<Vertex> frontSurface = {
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(frontSurface);
+    }
+    if (direction_true(grid, x, y, z, "back", side)) {
+        std::vector<Vertex> backSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMinY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(backSurface);
+    }
+    if (direction_true(grid, x, y, z, "right", side)) {
+        std::vector<Vertex> rightSurface = {
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(rightSurface);
+    }
+    if (direction_true(grid, x, y, z, "left", side)) {
+        std::vector<Vertex> leftSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMinZ}
+        };
+        interiorSurfaces.push_back(leftSurface);
+    }
+    if (direction_true(grid, x, y, z, "up", side)) {
+        std::vector<Vertex> upSurface = {
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ}
+        };
+        interiorSurfaces.push_back(upSurface);
+    }
+    if (direction_true(grid, x, y, z, "down", side)) {
+        std::vector<Vertex> downSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ}
+        };
+        interiorSurfaces.push_back(downSurface);
     }
 
-    nlohmann::json cityObject;
-    cityObject["type"] = "Building";
-    cityObject["geometry"] = nlohmann::json::array();
-
-
-    nlohmann::json geometryObject = {
-            {"type", "MultiSurface"},
-            {"lod", "2"},
-            {"boundaries", boundaries}
-    };
-    cityObject["geometry"].push_back(geometryObject);
-
-
-    json["CityObjects"]["MyBuilding"] = cityObject;
-
-
-    json["vertices"] = vertices;
-
-    // Write JSON to file
-    std::ofstream out_stream(filename);
-    out_stream << std::setw(4) << json;
-    out_stream.close();
+    return interiorSurfaces;
 }
+
 
 
 void printModelInfo(const ObjModel &model, bool printGroupDetails) {
