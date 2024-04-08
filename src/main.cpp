@@ -30,40 +30,21 @@ int main(int argc, const char * argv[]) {
     assignMinMax(model);
 
     vector<float> boundingBoxes;
-    float max_x = 0;
-    float min_x = 0;
-    float max_y = 0;
-    float min_y = 0;
 
     // Assign bounding box for all groups
     for (auto it = model.groups.begin(); it != model.groups.end(); ) {
         Group& group = *it;
         group.boundingBox = horizontalBoundingBox(group, model);
-        cout << "groupname: " << group.groupname << endl;
 
         if (group.boundingBox > 1000) {
             it = model.groups.erase(it); // Remove the group from the vector
         } else if (group.max_x > 18 || group.min_x < -12.5 || group.max_y > 15 || group.min_y < -19) {
             it = model.groups.erase(it);
         } else {
-                ++it; // Move to the next element
-            }
+            ++it; // Move to the next element
+        }
         boundingBoxes.push_back(group.boundingBox);
     }
-
-    for (auto group : model.groups) {
-        if (group.max_x > max_x) max_x = group.max_x;
-        if (group.min_x < min_x) min_x = group.min_x;
-        if (group.max_y > max_y) max_y = group.max_y;
-        if (group.min_y < min_y) min_y = group.min_y;
-    }
-
-    cout << "max x " << max_x << endl;
-    cout << "min x " << min_x << endl;
-    cout << "max y " << max_y << endl;
-    cout << "min y " << min_y << endl;
-
-
 
     std::sort(boundingBoxes.begin(), boundingBoxes.end(), std::greater<float>());
 
@@ -97,14 +78,10 @@ int main(int argc, const char * argv[]) {
         model.model_vertices.push_back(voxelGrid.model_to_voxel(vertex, model.min_x, model.min_y, model.min_z));
     }
 
-
     // Step 4: Voxelise the grid
     // Get the triangle faces from the model
     vector<Triangle3> trianglesModelCoordinates = extractTriangles(model).first;
     vector<Triangle3> trianglesGridCoordinates = extractTriangles(model).second;
-
-    cout << "Number of triangles to test for intersection: " << trianglesModelCoordinates.size() << endl;
-    cout << "Number of triangles to test for intersection: " << trianglesGridCoordinates.size() << endl;
 
     // Checking triangle intersection with VoxelGrid
     markGrid(trianglesModelCoordinates, trianglesGridCoordinates, model, voxelGrid);
