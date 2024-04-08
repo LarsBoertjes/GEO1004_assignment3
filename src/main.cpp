@@ -137,18 +137,22 @@ int main(int argc, const char *argv[]) {
     // A room only exists if it's at least 0.5 meter wide
     double minWidth = 0.5;
     double minLength = 0.5;
+    double minHeight = 0.8;
     for (int roomId = allInteriorSurfaces.size() - 1; roomId >= 0; --roomId) {
         const auto &roomSurfaces = allInteriorSurfaces[roomId];
         double roomWidth = 0.0;
         double roomLength = 0.0;
+        double roomHeight = 0.0;
 
         // Get the distance between the maximum and minimum for x and y
-        auto [surfaceWidth, surfaceLength] = calculatePolygonDimensions(roomSurfaces);
-        roomWidth = max(roomWidth, surfaceWidth);
-        roomLength = max(roomLength, surfaceLength);
+        vector<double> values = calculatePolygonDimensions(roomSurfaces);
+        cout<<values[2]<<endl;
+        roomWidth = max(roomWidth, values[0]);
+        roomLength = max(roomLength, values[1]);
+        roomHeight = max(roomHeight, values[2]);
 
         // Compare the room size with the threshold. If it's lower, the surface is removed
-        if (roomWidth <= minWidth || roomLength <= minLength) {
+        if (roomWidth <= minWidth || roomLength <= minLength || roomHeight <= minHeight) {
             allInteriorSurfaces.erase(allInteriorSurfaces.begin() + roomId);
         }
     }

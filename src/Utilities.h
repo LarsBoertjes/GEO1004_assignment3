@@ -218,12 +218,14 @@ output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dila
 }
 
 
-pair<double, double> calculatePolygonDimensions(const vector<vector<Vertex>> &polygons) {
+vector<double> calculatePolygonDimensions(const vector<vector<Vertex>> &polygons) {
     // The width and length of the room is calculated
     float minX = polygons[0][0].x;
     float maxX = polygons[0][0].x;
     float minY = polygons[0][0].y;
     float maxY = polygons[0][0].y;
+    float minZ = polygons[0][0].z;
+    float maxZ = polygons[0][0].z;
 
     for (const auto &polygon: polygons) {
         for (const auto &vertex: polygon) {
@@ -231,12 +233,19 @@ pair<double, double> calculatePolygonDimensions(const vector<vector<Vertex>> &po
             maxX = max(maxX, vertex.x);
             minY = min(minY, vertex.y);
             maxY = max(maxY, vertex.y);
+            minZ = min(minZ, vertex.z);
+            maxZ = max(maxZ, vertex.z);
         }
     }
 
     double width = maxX - minX;
     double length = maxY - minY;
-    return make_pair(width, length);
+    double height = maxZ - minZ;
+    vector<double> values;
+    values.push_back(width);
+    values.push_back(length);
+    values.push_back(height);
+    return values;
 }
 
 void printModelInfo(const ObjModel &model, bool printGroupDetails) {
