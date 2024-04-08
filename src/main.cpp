@@ -270,7 +270,7 @@ int main(int argc, const char *argv[]) {
 
 
     // Write JSON to file
-    string output_string = "../data/output.city.json";
+    string output_string = "../output/output.city.json";
     ofstream out_stream(output_string);
     out_stream << setw(0) << json;
 
