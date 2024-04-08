@@ -24,10 +24,48 @@ int main(int argc, const char * argv[]) {
     // -- done using IfcConvert in the commandline
 
     // Step 2: read the obj file content into memory
-    ObjModel model = readObjFile("../data/IfcOpenHouse_IFC4.obj");
+    ObjModel model = readObjFile("../data/2022020320211122Wellness.obj");
 
     // Assign min, max values to the object
     assignMinMax(model);
+
+    vector<float> boundingBoxes;
+    float max_x = 0;
+    float min_x = 0;
+    float max_y = 0;
+    float min_y = 0;
+
+    // Assign bounding box for all groups
+    for (auto it = model.groups.begin(); it != model.groups.end(); ) {
+        Group& group = *it;
+        group.boundingBox = horizontalBoundingBox(group, model);
+        cout << "groupname: " << group.groupname << endl;
+
+        if (group.boundingBox > 1000) {
+            it = model.groups.erase(it); // Remove the group from the vector
+        } else if (group.max_x > 18 || group.min_x < -12.5 || group.max_y > 15 || group.min_y < -19) {
+            it = model.groups.erase(it);
+        } else {
+                ++it; // Move to the next element
+            }
+        boundingBoxes.push_back(group.boundingBox);
+    }
+
+    for (auto group : model.groups) {
+        if (group.max_x > max_x) max_x = group.max_x;
+        if (group.min_x < min_x) min_x = group.min_x;
+        if (group.max_y > max_y) max_y = group.max_y;
+        if (group.min_y < min_y) min_y = group.min_y;
+    }
+
+    cout << "max x " << max_x << endl;
+    cout << "min x " << min_x << endl;
+    cout << "max y " << max_y << endl;
+    cout << "min y " << min_y << endl;
+
+
+
+    std::sort(boundingBoxes.begin(), boundingBoxes.end(), std::greater<float>());
 
     // Compute bounding box dimensions
     float bbX = model.max_x - model.min_x;
@@ -59,6 +97,7 @@ int main(int argc, const char * argv[]) {
         model.model_vertices.push_back(voxelGrid.model_to_voxel(vertex, model.min_x, model.min_y, model.min_z));
     }
 
+
     // Step 4: Voxelise the grid
     // Get the triangle faces from the model
     vector<Triangle3> trianglesModelCoordinates = extractTriangles(model).first;
@@ -85,31 +124,131 @@ int main(int argc, const char * argv[]) {
         }
     }
 
-    // Testing to print layers
-    for (int z = 0; z < nrows_z; ++z) {
-        cout << "z: " << z << endl;
-        for (int j = 0; j < nrows_y; ++j) {
-            for (int i = 0; i < nrows_x; ++i) {
-                unsigned int v = voxelGrid(i, j, z);
-                cout << v << " ";
+    // Step 6: Extract the surfaces
+    // We need to dilate the surfaces to fill the empty space
+
+    float dilationAmount = (1 - resolution);
+
+    // Process interior
+    vector<vector<vector<Vertex>>> allInteriorSurfaces;
+    for (int roomId = 3; roomId < room_id; ++roomId) {
+        vector<vector<Vertex>> interior_Surfaces;
+        for (int x = 0; x < nrows_x; ++x) {
+            for (int y = 0; y < nrows_y; ++y) {
+                for (int z = 0; z < nrows_z; ++z) {
+                    if (voxelGrid(x, y, z) == 1) {
+                        vector<vector<Vertex>> voxelSurfaces2 = output_int_surface(voxelGrid, x, y, z, model,
+                                                                                   dilationAmount, roomId);
+                        interior_Surfaces.insert(interior_Surfaces.end(), voxelSurfaces2.begin(),
+                                                 voxelSurfaces2.end());
+                    }
+                }
             }
-            cout << endl;
         }
-        cout << endl;
-        cout << "---------------" << endl;
+        allInteriorSurfaces.push_back(interior_Surfaces);
     }
 
-    vector<Face> outerEnvelopeFaces = extractOuterEnvelope(voxelGrid, model, resolution);
-    cout << "Number of outerEnvelopeFaces: " << outerEnvelopeFaces.size() << endl;
-
-    // Prints the vertexIndices of the first 3 outerEvelopeFaces
-    for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            cout << outerEnvelopeFaces[i].vertexIndices[j] << endl;
+    // Process exterior
+    // Interior and exterior have to be processed slightly different
+    vector<vector<Vertex>> exteriorSurfaces;
+    for (int x = 0; x < nrows_x; ++x) {
+        for (int y = 0; y < nrows_y; ++y) {
+            for (int z = 0; z < nrows_z; ++z) {
+                if (voxelGrid(x, y, z) == 1) {
+                    vector<vector<Vertex>> voxelSurfaces = output_surface(voxelGrid, x, y, z, model,
+                                                                          dilationAmount, 2);
+                    exteriorSurfaces.insert(exteriorSurfaces.end(), voxelSurfaces.begin(), voxelSurfaces.end());
+                }
+            }
         }
-        cout << endl;
     }
 
+    // Step 7: Output to CityJSON
+    nlohmann::json json;
+    json["type"] = "CityJSON";
+    json["version"] = "2.0";
+    json["transform"] = {{"scale",     {1.0, 1.0, 1.0}},
+                         {"translate", {0.0, 0.0, 0.0}}};
+    json["CityObjects"] = nlohmann::json::object();
+
+    vector<vector<double>> vertices;
+
+    // write the exterior
+    vector<vector<vector<int>>> ex_boundaries;
+    for (const auto &surface: exteriorSurfaces) {
+        vector<vector<int>> surfaceBoundaries;
+        vector<int> polygonBoundary;
+        for (const auto &vertex: surface) {
+            auto it = find(vertices.begin(), vertices.end(), vector<double>{vertex.x, vertex.y, vertex.z});
+
+            if (it == vertices.end()) {
+                vertices.push_back({vertex.x, vertex.y, vertex.z});
+                polygonBoundary.push_back(vertices.size() - 1);
+            } else {
+                polygonBoundary.push_back(distance(vertices.begin(), it));
+            }
+        }
+
+        surfaceBoundaries.push_back(polygonBoundary);
+        ex_boundaries.push_back(surfaceBoundaries);
+    }
+
+    nlohmann::json cityObject;
+    cityObject["type"] = "Building";
+    cityObject["geometry"] = nlohmann::json::array();
+
+    nlohmann::json geometryObject = {
+            {"type",       "MultiSurface"},
+            {"lod",        "2"},
+            {"boundaries", ex_boundaries}
+    };
+
+    cityObject["geometry"].push_back(geometryObject);
+    json["CityObjects"]["Building"] = cityObject;
+
+
+    // write the interiors
+    for (size_t roomId = 0; roomId < allInteriorSurfaces.size(); ++roomId) {
+        vector<vector<Vertex>> &interiorSurfaces = allInteriorSurfaces[roomId];
+        vector<vector<vector<int>>> int_boundaries;
+
+        for (const auto &surface: interiorSurfaces) {
+            vector<vector<int>> surfaceBoundaries;
+            vector<int> polygonBoundary;
+            for (const auto &vertex: surface) {
+                auto it = find(vertices.begin(), vertices.end(), vector<double>{vertex.x, vertex.y, vertex.z});
+
+                if (it == vertices.end()) {
+                    vertices.push_back({vertex.x, vertex.y, vertex.z});
+                    polygonBoundary.push_back(vertices.size() - 1);
+                } else {
+                    polygonBoundary.push_back(distance(vertices.begin(), it));
+                }
+            }
+
+            surfaceBoundaries.push_back(polygonBoundary);
+            int_boundaries.push_back(surfaceBoundaries);
+        }
+
+        nlohmann::json cityObject2;
+        cityObject2["type"] = "BuildingRoom";
+        cityObject2["geometry"] = nlohmann::json::array();
+        nlohmann::json geometryObject2 = {
+                {"type",       "MultiSurface"},
+                {"lod",        "2"},
+                {"boundaries", int_boundaries}
+        };
+
+        cityObject2["geometry"].push_back(geometryObject2);
+        json["CityObjects"]["BuildingRoom" + to_string(roomId + 1)] = cityObject2;
+    }
+
+    json["vertices"] = vertices;
+
+    // Write JSON to file
+    ofstream out_stream("output.city.json");
+    out_stream << setw(1) << json;
+    out_stream.close();
 
     return 0;
 }
