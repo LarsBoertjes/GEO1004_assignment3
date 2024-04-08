@@ -117,8 +117,8 @@ int main(int argc, const char *argv[]) {
         allInteriorSurfaces.push_back(interiorSurfaces);
     }
 
-    double minWidth = 1.0;
-    double minLength = 1.0;
+    double minWidth = 0.5;
+    double minLength = 0.5;
     for (int roomId = allInteriorSurfaces.size() - 1; roomId >= 0; --roomId) {
         const auto &roomSurfaces = allInteriorSurfaces[roomId];
         double roomWidth = 0.0;

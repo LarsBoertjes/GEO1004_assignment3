@@ -97,6 +97,8 @@ ObjModel readObjFile(const string &filePath) {
     return model;
 }
 
+
+
 bool direction_true(const VoxelGrid &grid, int x, int y, int z, string direction, int side) {
     if (direction == "front") {
         return grid(x, y + 1, z) == side;
@@ -137,6 +139,12 @@ vector<vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, int z, ObjM
     float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
     float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
 
+    voxelMinX *= grid.resolution;
+    voxelMinY *= grid.resolution;
+    voxelMinZ *= grid.resolution;
+    voxelMaxX *= grid.resolution;
+    voxelMaxY *= grid.resolution;
+    voxelMaxZ *= grid.resolution;
 
     if (direction_true(grid, x, y, z, "front", side)) {
         vector<Vertex> frontSurface = {
@@ -208,6 +216,12 @@ vector<vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int y, int z, 
     float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
     float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
 
+    voxelMinX *= grid.resolution;
+    voxelMinY *= grid.resolution;
+    voxelMinZ *= grid.resolution;
+    voxelMaxX *= grid.resolution;
+    voxelMaxY *= grid.resolution;
+    voxelMaxZ *= grid.resolution;
 
     if (direction_true(grid, x, y, z, "front", side)) {
         vector<Vertex> frontSurface = {
