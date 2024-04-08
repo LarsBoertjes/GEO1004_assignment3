@@ -33,19 +33,22 @@ int main(int argc, const char *argv[]) {
     // -- done using IfcConvert in the commandline
 
     // Step 2: read the obj file content into memory
-    ObjModel model = readObjFile("../data/Wellness_center.obj");
+    string filepath = "../data/Wellness_center.obj";
+    ObjModel model = readObjFile(filepath);
 
-    // Assign bounding box for all groups
-    for (auto it = model.groups.begin(); it != model.groups.end(); ) {
-        Group& group = *it;
-        group.boundingBox = horizontalBoundingBox(group, model);
+    if (filepath == "../data/Wellness_center.obj") {
+        // Assign bounding box for all groups
+        for (auto it = model.groups.begin(); it != model.groups.end();) {
+            Group &group = *it;
+            group.boundingBox = horizontalBoundingBox(group, model);
 
-        if (group.boundingBox > 1200) {
-            it = model.groups.erase(it); // Remove the group from the vector
-        } else if (group.max_x > 18 || group.min_x < -18 || group.max_y > 9 || group.min_y < -23) {
-            it = model.groups.erase(it);
-        } else {
-            ++it; // Move to the next element
+            if (group.boundingBox > 1200) {
+                it = model.groups.erase(it); // Remove the group from the vector
+            } else if (group.max_x > 18 || group.min_x < -18 || group.max_y > 9 || group.min_y < -23) {
+                it = model.groups.erase(it);
+            } else {
+                ++it; // Move to the next element
+            }
         }
     }
 
@@ -272,7 +275,7 @@ int main(int argc, const char *argv[]) {
     json["vertices"] = vertices;
 
 // Write JSON to file
-    ofstream out_stream("output.city.json");
+    ofstream out_stream("../data/output.city.json");
     out_stream << setw(4) << json;
     out_stream.close();
 
