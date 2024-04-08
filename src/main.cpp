@@ -135,8 +135,8 @@ int main(int argc, const char *argv[]) {
 
     // Remove the spaces between walls that are created at a high resolution
     // A room only exists if it's at least 0.5 meter wide
-    double minWidth = 0.8;
-    double minLength = 0.8;
+    double minWidth = 0.5;
+    double minLength = 0.5;
     for (int roomId = allInteriorSurfaces.size() - 1; roomId >= 0; --roomId) {
         const auto &roomSurfaces = allInteriorSurfaces[roomId];
         double roomWidth = 0.0;
