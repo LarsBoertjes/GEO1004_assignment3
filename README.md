@@ -11,7 +11,7 @@ Before running the C++ code, ensure that the following libraries are installed i
 
 1. **Specify .OBJ File**: 
     - In the `main.cpp` file, navigate to line 36 and specify the filepath to an .OBJ-file.
-    - We recommend using the files provided in the `data` folder, as some parts of the code are specifically tailored for these files.
+    - We recommend using the files provided in the `data` folder, as some parts of the code are hardcoded for these files.
 
 2. **Specify Resolution**: 
     - On line 68 of `main.cpp`, specify the desired resolution.
@@ -23,4 +23,4 @@ Before running the C++ code, ensure that the following libraries are installed i
 ## Additional Notes
 
 - Ensure that all necessary dependencies are properly configured and accessible in your development environment.
-- For any issues or inquiries, please refer to the documentation or contact the repository owner.
+- Running of a resolution lower than 0.2 will take some time
