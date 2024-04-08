@@ -117,21 +117,22 @@ int main(int argc, const char *argv[]) {
         allInteriorSurfaces.push_back(interiorSurfaces);
     }
 
-    double minWidth = 0.5;
-    double minLength = 0.5;
+    double minWidth = 1.1;
+    double minLength = 1.1;
     for (int roomId = allInteriorSurfaces.size() - 1; roomId >= 0; --roomId) {
-        const auto& roomSurfaces = allInteriorSurfaces[roomId];
+        const auto &roomSurfaces = allInteriorSurfaces[roomId];
         double roomWidth = 0.0;
         double roomLength = 0.0;
-        for (const auto& surface : roomSurfaces) {
-            auto [surfaceWidth, surfaceLength] = calculatePolygonDimensions(surface);
-            roomWidth = max(roomWidth, surfaceWidth);
-            roomLength = max(roomLength, surfaceLength);
-        }
+
+        auto [surfaceWidth, surfaceLength] = calculatePolygonDimensions(roomSurfaces);
+        roomWidth = max(roomWidth, surfaceWidth);
+        roomLength = max(roomLength, surfaceLength);
+
         if (roomWidth < minWidth || roomLength < minLength) {
             allInteriorSurfaces.erase(allInteriorSurfaces.begin() + roomId);
         }
     }
+
 
     // Process exterior
     // Interior and exterior have to be processed slightly different because of the rooms

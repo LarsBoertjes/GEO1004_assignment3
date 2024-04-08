@@ -268,19 +268,21 @@ vector<vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int y, int z, 
     return interiorSurfaces;
 }
 
-pair<double, double> calculatePolygonDimensions(const vector<Vertex>& polygon) {
-    float minX = polygon[0].x;
-    float maxX = polygon[0].x;
-    float minY = polygon[0].y;
-    float maxY = polygon[0].y;
-    for (size_t i = 1; i < polygon.size(); ++i) {
-        minX = min(minX, polygon[i].x);
-        maxX = max(maxX, polygon[i].x);
-        minY = min(minY, polygon[i].y);
-        maxY = max(maxY, polygon[i].y);
+pair<double, double> calculatePolygonDimensions(const vector<vector<Vertex>>& polygons) {
+    float minX = polygons[0][0].x;
+    float maxX = polygons[0][0].x;
+    float minY = polygons[0][0].y;
+    float maxY = polygons[0][0].y;
+
+    for (const auto& polygon : polygons) {
+        for (const auto& vertex : polygon) {
+            minX = min(minX, vertex.x);
+            maxX = max(maxX, vertex.x);
+            minY = min(minY, vertex.y);
+            maxY = max(maxY, vertex.y);
+        }
     }
-    cout<<maxX<<endl;
-    cout<<minX<<endl;
+
     double width = maxX - minX;
     double length = maxY - minY;
     return make_pair(width, length);
