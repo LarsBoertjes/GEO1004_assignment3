@@ -11,7 +11,7 @@ Before running the C++ code, ensure that the following libraries are installed i
 
 1. **Specify .OBJ File**: 
     - In the `main.cpp` file, navigate to line 36 and specify the filepath to an .OBJ-file.
-    - We recommend using the files provided in the `data` folder, as some parts of the code are hardcoded for these files.
+    - We recommend using the files provided in the `data` folder, as some parts of the code are hardcoded for these files. It is set to "Wellness_center.obj" by default.
 
 2. **Specify Resolution**: 
     - On line 68 of `main.cpp`, specify the desired resolution.
