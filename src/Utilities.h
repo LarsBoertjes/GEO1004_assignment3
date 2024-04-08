@@ -3,7 +3,6 @@
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include "ObjModel.h"
-#include "VoxelGrid.h"
 #include <string>
 #include <CGAL/AABB_tree.h>
 #include <CGAL/AABB_traits.h>
@@ -11,20 +10,22 @@
 #include <vector>
 #include <stack>
 
-
 using namespace std;
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Triangle_3 Triangle3;
 typedef K::Point_3 Point3;
 
-ObjModel readObjFile(const std::string& filePath);
-void printModelInfo(const ObjModel& model, bool printGroupDetails);
-std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const ObjModel& model);
-void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &trianglesGrid,
-              const ObjModel &model, VoxelGrid& voxelGrid);
+ObjModel readObjFile(const string &filePath);
 
-ObjModel readObjFile(const string& filePath) {
+void printModelInfo(const ObjModel &model, bool printGroupDetails);
+
+pair<vector<Triangle3>, vector<Triangle3>> extractTriangles(const ObjModel &model);
+
+void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &trianglesGrid,
+              const ObjModel &model, VoxelGrid &voxelGrid);
+
+ObjModel readObjFile(const string &filePath) {
     // Read in ObjFile to Struct:
     // Groups consisting of faces
     // Vertices for the whole model
@@ -92,7 +93,153 @@ ObjModel readObjFile(const string& filePath) {
     return model;
 }
 
-void printModelInfo(const ObjModel& model, bool printGroupDetails) {
+
+float horizontalBoundingBox(Group &group, ObjModel &model) {
+    // Constructs the bounding box of the model
+    for (const Face &face: group.groupFaces) {
+        for (int vertex: face.vertexIndices) {
+            if (model.vertices[vertex].x < group.min_x) group.min_x = model.vertices[vertex].x;
+            if (model.vertices[vertex].x > group.max_x) group.max_x = model.vertices[vertex].x;
+            if (model.vertices[vertex].y < group.min_y) group.min_y = model.vertices[vertex].y;
+            if (model.vertices[vertex].y > group.max_y) group.max_y = model.vertices[vertex].y;
+            if (model.vertices[vertex].z < group.min_z) group.min_z = model.vertices[vertex].z;
+            if (model.vertices[vertex].z > group.max_z) group.max_z = model.vertices[vertex].z;
+        }
+    }
+
+    float boundingBox = ((group.max_x - group.min_x) * (group.max_y - group.min_y));
+
+    return boundingBox;
+}
+
+bool direction_true(const VoxelGrid &grid, int x, int y, int z, string direction, int label) {
+    // Returns true for each side of the voxel that has the chosen label
+    if (direction == "front") {
+        return grid(x, y + 1, z) == label;
+    }
+    if (direction == "back") {
+        return grid(x, y - 1, z) == label;
+    }
+    if (direction == "right") {
+        return grid(x + 1, y, z) == label;
+    }
+    if (direction == "left") {
+        return grid(x - 1, y, z) == label;
+    }
+    if (direction == "up") {
+        return grid(x, y, z + 1) == label;
+    }
+    if (direction == "down") {
+        return grid(x, y, z - 1) == label;
+    }
+
+    return false;
+}
+
+vector<vector<Vertex>>
+output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
+    // Constructs the surfaces in model coordinates
+    vector<vector<Vertex>> outputSurfaces;
+
+    // The dilationAmount makes the voxels bigger and touch each other again
+    // e.g. From voxel size 0.2 (spaced 0.8 apart) to 1 (because of dilation) to 0.2 (adjacent and correct scale)
+    float voxelMinX = (model.min_x + x - 1 * grid.resolution) - dilationAmount;
+    float voxelMinY = (model.min_y + y - 1 * grid.resolution) - dilationAmount;
+    float voxelMinZ = (model.min_z + z - 1 * grid.resolution) - dilationAmount;
+    float voxelMaxX = (voxelMinX + grid.resolution) + dilationAmount;
+    float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
+    float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
+
+    // Scale the touching voxels back
+    voxelMinX *= grid.resolution;
+    voxelMinY *= grid.resolution;
+    voxelMinZ *= grid.resolution;
+    voxelMaxX *= grid.resolution;
+    voxelMaxY *= grid.resolution;
+    voxelMaxZ *= grid.resolution;
+
+    // For each direction that is facing a room or the exterior, a surface is constructed counterclockwise
+    if (direction_true(grid, x, y, z, "front", side)) {
+        vector<Vertex> frontSurface = {
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ}
+        };
+        outputSurfaces.push_back(frontSurface);
+    }
+    if (direction_true(grid, x, y, z, "back", side)) {
+        vector<Vertex> backSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMinY, voxelMaxZ}
+        };
+        outputSurfaces.push_back(backSurface);
+    }
+    if (direction_true(grid, x, y, z, "right", side)) {
+        vector<Vertex> rightSurface = {
+                {voxelMaxX, voxelMinY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ}
+        };
+        outputSurfaces.push_back(rightSurface);
+    }
+    if (direction_true(grid, x, y, z, "left", side)) {
+        vector<Vertex> leftSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMinZ}
+        };
+        outputSurfaces.push_back(leftSurface);
+    }
+    if (direction_true(grid, x, y, z, "up", side)) {
+        vector<Vertex> upSurface = {
+                {voxelMinX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMinY, voxelMaxZ},
+                {voxelMaxX, voxelMaxY, voxelMaxZ},
+                {voxelMinX, voxelMaxY, voxelMaxZ}
+        };
+        outputSurfaces.push_back(upSurface);
+    }
+    if (direction_true(grid, x, y, z, "down", side)) {
+        vector<Vertex> downSurface = {
+                {voxelMinX, voxelMinY, voxelMinZ},
+                {voxelMinX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMaxY, voxelMinZ},
+                {voxelMaxX, voxelMinY, voxelMinZ}
+        };
+        outputSurfaces.push_back(downSurface);
+    }
+
+    return outputSurfaces;
+}
+
+
+pair<double, double> calculatePolygonDimensions(const vector<vector<Vertex>> &polygons) {
+    // The width and length of the room is calculated
+    float minX = polygons[0][0].x;
+    float maxX = polygons[0][0].x;
+    float minY = polygons[0][0].y;
+    float maxY = polygons[0][0].y;
+
+    for (const auto &polygon: polygons) {
+        for (const auto &vertex: polygon) {
+            minX = min(minX, vertex.x);
+            maxX = max(maxX, vertex.x);
+            minY = min(minY, vertex.y);
+            maxY = max(maxY, vertex.y);
+        }
+    }
+
+    double width = maxX - minX;
+    double length = maxY - minY;
+    return make_pair(width, length);
+}
+
+void printModelInfo(const ObjModel &model, bool printGroupDetails) {
     // Print the ObjModel Information
     // Boolean to enable/disable printing of group names
 
@@ -101,7 +248,7 @@ void printModelInfo(const ObjModel& model, bool printGroupDetails) {
     cout << "Number of groups: " << model.groups.size() << endl;
 
     int totalFaces = 0;
-    for (const auto& group : model.groups) {
+    for (const auto &group: model.groups) {
         if (printGroupDetails) {
             cout << "Group: " << group.groupname << ", Faces: " << group.groupFaces.size();
             cout << ", Smoothing: " << group.smoothingParameter << ", Material: " << group.usemtl << endl;
@@ -113,25 +260,30 @@ void printModelInfo(const ObjModel& model, bool printGroupDetails) {
     cout << "-----------------------" << endl;
 }
 
-void assignMinMax(ObjModel& model) {
+void assignMinMax(ObjModel &model) {
     // Assigns min, max values for all three directions to ObjModel
     // Iterate over all the vertices of the ObjModel and update if needed
-    for (const Vertex &vertex : model.vertices) {
-        if (vertex.x < model.min_x) model.min_x = vertex.x;
-        if (vertex.x > model.max_x) model.max_x = vertex.x;
-        if (vertex.y < model.min_y) model.min_y = vertex.y;
-        if (vertex.y > model.max_y) model.max_y = vertex.y;
-        if (vertex.z < model.min_z) model.min_z = vertex.z;
-        if (vertex.z > model.max_z) model.max_z = vertex.z;
+    for (const Group &group: model.groups) {
+        for (const Face &face: group.groupFaces) {
+            for (const int &vertex: face.vertexIndices) {
+                if (model.vertices[vertex].x < model.min_x) model.min_x = model.vertices[vertex].x;
+                if (model.vertices[vertex].x > model.max_x) model.max_x = model.vertices[vertex].x;
+                if (model.vertices[vertex].y < model.min_y) model.min_y = model.vertices[vertex].y;
+                if (model.vertices[vertex].y > model.max_y) model.max_y = model.vertices[vertex].y;
+                if (model.vertices[vertex].z < model.min_z) model.min_z = model.vertices[vertex].z;
+                if (model.vertices[vertex].z > model.max_z) model.max_z = model.vertices[vertex].z;
+            }
+        }
     }
 }
 
-std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const ObjModel& model) {
+pair<vector<Triangle3>, vector<Triangle3>> extractTriangles(const ObjModel &model) {
+    // Construct triangles in voxel and model coordinates
     vector<Triangle3> trianglesModelCoordinates;
     vector<Triangle3> trianglesGridCoordinates;
 
-    for (const auto &group : model.groups) {
-        for (const auto &face : group.groupFaces) {
+    for (const auto &group: model.groups) {
+        for (const auto &face: group.groupFaces) {
             // Check if the face is a triangle
             if (face.vertexIndices.size() != 3) {
                 cerr << "Error: The input should be triangulated." << endl;
@@ -162,11 +314,11 @@ std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const
         }
     }
 
-    return std::make_pair(trianglesModelCoordinates, trianglesGridCoordinates);
+    return make_pair(trianglesModelCoordinates, trianglesGridCoordinates);
 }
 
 void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &trianglesGrid,
-              const ObjModel &model, VoxelGrid& voxelGrid) {
+              const ObjModel &model, VoxelGrid &voxelGrid) {
     // Iterate over all triangles and check with which voxels they overlap
     // Mark the voxel als occupied if intersects
 
@@ -197,22 +349,22 @@ void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &
     }
 }
 
-void markSpace(VoxelGrid& voxelGrid, vector<int> start, int label, int nrows_x, int nrows_y, int nrows_z) {
-    // Initialize stack with voxels to check
+void markSpace(VoxelGrid &voxelGrid, vector<int> start, int label, int nrows_x, int nrows_y, int nrows_z) {
+    // Initialize queue with voxels to check
     queue<vector<int>> to_check;
     to_check.push(start);
 
     // Neighbors of starting voxel
-    const std::vector<std::vector<int>> neighbours = {{1,  0,  0},
-                                                      {-1, 0,  0},
-                                                      {0,  1,  0},
-                                                      {0,  -1, 0},
-                                                      {0,  0,  1},
-                                                      {0,  0,  -1}};
+    const vector<vector<int>> neighbours = {{1,  0,  0},
+                                            {-1, 0,  0},
+                                            {0,  1,  0},
+                                            {0,  -1, 0},
+                                            {0,  0,  1},
+                                            {0,  0,  -1}};
 
-    // Until the stack is empty
+    // Until the queue is empty
     while (!to_check.empty()) {
-        // Check current voxel which is on top of stack
+        // Check current voxel which is on top of queue
         vector<int> current_vox = to_check.front();
         to_check.pop();
         int x = current_vox[0], y = current_vox[1], z = current_vox[2];
@@ -220,8 +372,8 @@ void markSpace(VoxelGrid& voxelGrid, vector<int> start, int label, int nrows_x, 
         if (voxelGrid(x, y, z) == 0) {
             voxelGrid(x, y, z) = label;
 
-            //
-            for (const vector<int> &neighbour : neighbours) {
+            // Construct each neighbour
+            for (const vector<int> &neighbour: neighbours) {
                 int nx = x + neighbour[0];
                 int ny = y + neighbour[1];
                 int nz = z + neighbour[2];
@@ -234,198 +386,11 @@ void markSpace(VoxelGrid& voxelGrid, vector<int> start, int label, int nrows_x, 
                 }
             }
         }
-    }
-}
-
-
-
-float horizontalBoundingBox(Group &group, ObjModel& model) {
-
-    for (const Face &face : group.groupFaces) {
-        for (int vertex : face.vertexIndices) {
-            if (model.vertices[vertex].x < group.min_x) group.min_x = model.vertices[vertex].x;
-            if (model.vertices[vertex].x > group.max_x) group.max_x = model.vertices[vertex].x;
-            if (model.vertices[vertex].y < group.min_y) group.min_y = model.vertices[vertex].y;
-            if (model.vertices[vertex].y > group.max_y) group.max_y = model.vertices[vertex].y;
-            if (model.vertices[vertex].z < group.min_z) group.min_z = model.vertices[vertex].z;
-            if (model.vertices[vertex].z > group.max_z) group.max_z = model.vertices[vertex].z;
-        }
-    }
-
-    float boundingBox = ((group.max_x - group.min_x) * (group.max_y - group.min_y));
-
-    return boundingBox;
-}
-
-bool direction_true(const VoxelGrid &grid, int x, int y, int z, string direction, int side) {
-    if (direction == "front") {
-        return grid(x, y + 1, z) == side;
 
     }
-    if (direction == "back") {
-        return grid(x, y - 1, z) == side;
 
 
-    }
-    if (direction == "right") {
-        return grid(x + 1, y, z) == side;
-
-
-    }
-    if (direction == "left") {
-        return grid(x - 1, y, z) == side;
-
-
-    }
-    if (direction == "up") {
-        return grid(x, y, z + 1) == side;
-    }
-    if (direction == "down") {
-        return grid(x, y, z - 1) == side;
-    }
-
-    return false;
-}
-
-std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
-    std::vector<std::vector<Vertex>> exteriorSurfaces;
-
-    float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
-    float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
-    float voxelMinZ = (model.min_z + z-1 * grid.resolution) - dilationAmount;
-    float voxelMaxX = (voxelMinX + grid.resolution) + dilationAmount;
-    float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
-    float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
-
-
-    if (direction_true(grid, x, y, z, "front", side)) {
-        std::vector<Vertex> frontSurface = {
-                {voxelMaxX, voxelMaxY, voxelMinZ},
-                {voxelMinX, voxelMaxY, voxelMinZ},
-                {voxelMinX, voxelMaxY, voxelMaxZ},
-                {voxelMaxX, voxelMaxY, voxelMaxZ}
-        };
-        exteriorSurfaces.push_back(frontSurface);
-    }
-    if (direction_true(grid, x, y, z, "back", side)) {
-        std::vector<Vertex> backSurface = {
-                {voxelMinX, voxelMinY, voxelMinZ},
-                {voxelMaxX, voxelMinY, voxelMinZ},
-                {voxelMaxX, voxelMinY, voxelMaxZ},
-                {voxelMinX, voxelMinY, voxelMaxZ}
-        };
-        exteriorSurfaces.push_back(backSurface);
-    }
-    if (direction_true(grid, x, y, z, "right", side)) {
-        std::vector<Vertex> rightSurface = {
-                {voxelMaxX, voxelMinY, voxelMinZ},
-                {voxelMaxX, voxelMaxY, voxelMinZ},
-                {voxelMaxX, voxelMaxY, voxelMaxZ},
-                {voxelMaxX, voxelMinY, voxelMaxZ}
-        };
-        exteriorSurfaces.push_back(rightSurface);
-    }
-    if (direction_true(grid, x, y, z, "left", side)) {
-        std::vector<Vertex> leftSurface = {
-                {voxelMinX, voxelMinY, voxelMinZ},
-                {voxelMinX, voxelMinY, voxelMaxZ},
-                {voxelMinX, voxelMaxY, voxelMaxZ},
-                {voxelMinX, voxelMaxY, voxelMinZ}
-        };
-        exteriorSurfaces.push_back(leftSurface);
-    }
-    if (direction_true(grid, x, y, z, "up", side)) {
-        std::vector<Vertex> upSurface = {
-                {voxelMinX, voxelMinY, voxelMaxZ},
-                {voxelMaxX, voxelMinY, voxelMaxZ},
-                {voxelMaxX, voxelMaxY, voxelMaxZ},
-                {voxelMinX, voxelMaxY, voxelMaxZ}
-        };
-        exteriorSurfaces.push_back(upSurface);
-    }
-    if (direction_true(grid, x, y, z, "down", side)) {
-        std::vector<Vertex> downSurface = {
-                {voxelMinX, voxelMinY, voxelMinZ},
-                {voxelMinX, voxelMaxY, voxelMinZ},
-                {voxelMaxX, voxelMaxY, voxelMinZ},
-                {voxelMaxX, voxelMinY, voxelMinZ}
-        };
-        exteriorSurfaces.push_back(downSurface);
-    }
-
-    return exteriorSurfaces;
-}
-
-std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
-    std::vector<std::vector<Vertex>> interiorSurfaces;
-
-    float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
-    float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
-    float voxelMinZ = (model.min_z + z-1 * grid.resolution) - dilationAmount;
-    float voxelMaxX = (voxelMinX + grid.resolution) + dilationAmount;
-    float voxelMaxY = (voxelMinY + grid.resolution) + dilationAmount;
-    float voxelMaxZ = (voxelMinZ + grid.resolution) + dilationAmount;
-
-
-    if (direction_true(grid, x, y, z, "front", side)) {
-        std::vector<Vertex> frontSurface = {
-                {voxelMaxX, voxelMaxY, voxelMinZ},
-                {voxelMinX, voxelMaxY, voxelMinZ},
-                {voxelMinX, voxelMaxY, voxelMaxZ},
-                {voxelMaxX, voxelMaxY, voxelMaxZ}
-        };
-        interiorSurfaces.push_back(frontSurface);
-    }
-    if (direction_true(grid, x, y, z, "back", side)) {
-        std::vector<Vertex> backSurface = {
-                {voxelMinX, voxelMinY, voxelMinZ},
-                {voxelMaxX, voxelMinY, voxelMinZ},
-                {voxelMaxX, voxelMinY, voxelMaxZ},
-                {voxelMinX, voxelMinY, voxelMaxZ}
-        };
-        interiorSurfaces.push_back(backSurface);
-    }
-    if (direction_true(grid, x, y, z, "right", side)) {
-        std::vector<Vertex> rightSurface = {
-                {voxelMaxX, voxelMinY, voxelMinZ},
-                {voxelMaxX, voxelMaxY, voxelMinZ},
-                {voxelMaxX, voxelMaxY, voxelMaxZ},
-                {voxelMaxX, voxelMinY, voxelMaxZ}
-        };
-        interiorSurfaces.push_back(rightSurface);
-    }
-    if (direction_true(grid, x, y, z, "left", side)) {
-        std::vector<Vertex> leftSurface = {
-                {voxelMinX, voxelMinY, voxelMinZ},
-                {voxelMinX, voxelMinY, voxelMaxZ},
-                {voxelMinX, voxelMaxY, voxelMaxZ},
-                {voxelMinX, voxelMaxY, voxelMinZ}
-        };
-        interiorSurfaces.push_back(leftSurface);
-    }
-    if (direction_true(grid, x, y, z, "up", side)) {
-        std::vector<Vertex> upSurface = {
-                {voxelMinX, voxelMinY, voxelMaxZ},
-                {voxelMaxX, voxelMinY, voxelMaxZ},
-                {voxelMaxX, voxelMaxY, voxelMaxZ},
-                {voxelMinX, voxelMaxY, voxelMaxZ}
-        };
-        interiorSurfaces.push_back(upSurface);
-    }
-    if (direction_true(grid, x, y, z, "down", side)) {
-        std::vector<Vertex> downSurface = {
-                {voxelMinX, voxelMinY, voxelMinZ},
-                {voxelMinX, voxelMaxY, voxelMinZ},
-                {voxelMaxX, voxelMaxY, voxelMinZ},
-                {voxelMaxX, voxelMinY, voxelMinZ}
-        };
-        interiorSurfaces.push_back(downSurface);
-    }
-
-    return interiorSurfaces;
 }
 
 
 #endif //GEO1004_ASSIGNMENT3_UTILITIES_H
-
-
