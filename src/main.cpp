@@ -33,7 +33,7 @@ int main(int argc, const char *argv[]) {
     // -- done using IfcConvert in the commandline
 
     // Step 2: read the obj file content into memory
-    string filepath = "../data/Wellness_center.obj";
+    string filepath = "../data/IfcOpenHouse_IFC4.obj";
     ObjModel model = readObjFile(filepath);
 
     if (filepath == "../data/Wellness_center.obj") {
@@ -60,12 +60,12 @@ int main(int argc, const char *argv[]) {
     float bbY = model.max_y - model.min_y;
     float bbZ = model.max_z - model.min_z;
 
-    cout << "Size: " << bbX << " * " << bbY << " * " << bbZ << endl;
+    cout << "Size of the bounding box: " << bbX << " * " << bbY << " * " << bbZ << endl;
 
     // Step 3: Construct the voxel grid
 
     // Set the resolution
-    float resolution = 0.2;
+    float resolution = 0.1;
 
     // Calculate number of rows in all dimensions + 2 for margin
     int nrows_x = static_cast<unsigned int>(ceil(bbX / resolution)) + 2;
@@ -90,9 +90,6 @@ int main(int argc, const char *argv[]) {
     // Get the triangle faces from the model
     vector<Triangle3> trianglesModelCoordinates = extractTriangles(model).first;
     vector<Triangle3> trianglesGridCoordinates = extractTriangles(model).second;
-
-    cout << "Number of triangles to test for intersection: " << trianglesModelCoordinates.size() << endl;
-    cout << "Number of triangles to test for intersection: " << trianglesGridCoordinates.size() << endl;
 
     // Checking triangle intersection with VoxelGrid
     markGrid(trianglesModelCoordinates, trianglesGridCoordinates, model, voxelGrid);
@@ -149,7 +146,6 @@ int main(int argc, const char *argv[]) {
 
         // Get the distance between the maximum and minimum for x and y
         vector<double> values = calculatePolygonDimensions(roomSurfaces);
-        cout<<values[2]<<endl;
         roomWidth = max(roomWidth, values[0]);
         roomLength = max(roomLength, values[1]);
         roomHeight = max(roomHeight, values[2]);
@@ -177,8 +173,6 @@ int main(int argc, const char *argv[]) {
             }
         }
     }
-
-
 
     // Step 7: Output to CityJSON
     // General settings
@@ -274,29 +268,13 @@ int main(int argc, const char *argv[]) {
 
     json["vertices"] = vertices;
 
-// Write JSON to file
-    ofstream out_stream("../data/output.city.json");
-    out_stream << setw(4) << json;
+    // Write JSON to file
+    string output_string = "../data/output.city.json";
+    ofstream out_stream(output_string);
+    out_stream << setw(0) << json;
     out_stream.close();
 
-
-
-
-
-
-    // Testing to print layers
-    for (int z = 0; z < nrows_z; ++z) {
-        cout << "z: " << z << endl;
-        for (int j = 0; j < nrows_y; ++j) {
-            for (int i = 0; i < nrows_x; ++i) {
-                unsigned int v = voxelGrid(i, j, z);
-                cout << v << " ";
-            }
-            cout << endl;
-        }
-        cout << endl;
-        cout << "---------------" << endl;
-    }
+    cout << "CityJSON file successfully written to " << output_string << endl;
 
     return 0;
 }
