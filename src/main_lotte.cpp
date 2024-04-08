@@ -128,7 +128,7 @@ int main(int argc, const char *argv[]) {
         roomWidth = max(roomWidth, surfaceWidth);
         roomLength = max(roomLength, surfaceLength);
 
-        if (roomWidth < minWidth || roomLength < minLength) {
+        if (roomWidth <= minWidth || roomLength <= minLength) {
             allInteriorSurfaces.erase(allInteriorSurfaces.begin() + roomId);
         }
     }
