@@ -11,15 +11,21 @@
 #include "ObjModel.h"
 #include "voxel_lotte.h"
 #include "utilities_lotte.h"
-#include <queue>
 
 // CGAL libraries
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Simple_cartesian.h>
+#include <CGAL/Surface_mesh.h>
+
+
+typedef CGAL::Simple_cartesian<double> Kernel;
+typedef Kernel::Point_3 Point_3;
+
+
+
 
 using json = nlohmann::json;
 using namespace std;
 
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_3 Point3;
 
 int main(int argc, const char *argv[]) {
@@ -42,7 +48,7 @@ int main(int argc, const char *argv[]) {
 
     // Step 3: Construct the voxel grid
     // Set the resolution
-    float resolution = 0.5;
+    float resolution = 0.2;
 
     // Calculate number of rows in all dimensions + 2 for margin
     int nrows_x = static_cast<unsigned int>(ceil(bbX / resolution)) + 2;
@@ -96,23 +102,40 @@ int main(int argc, const char *argv[]) {
     // Process interior
     vector<vector<vector<Vertex>>> allInteriorSurfaces;
     for (int roomId = 3; roomId < room_id; ++roomId) {
-        vector<vector<Vertex>> interior_Surfaces;
+        vector<vector<Vertex>> interiorSurfaces;
         for (int x = 0; x < nrows_x; ++x) {
             for (int y = 0; y < nrows_y; ++y) {
                 for (int z = 0; z < nrows_z; ++z) {
                     if (voxelGrid(x, y, z) == 1) {
                         vector<vector<Vertex>> voxelSurfaces2 = output_int_surface(voxelGrid, x, y, z, model,
                                                                                    dilationAmount, roomId);
-                        interior_Surfaces.insert(interior_Surfaces.end(), voxelSurfaces2.begin(), voxelSurfaces2.end());
+                        interiorSurfaces.insert(interiorSurfaces.end(), voxelSurfaces2.begin(), voxelSurfaces2.end());
+                        }
                     }
                 }
             }
-        }
-        allInteriorSurfaces.push_back(interior_Surfaces);
+        allInteriorSurfaces.push_back(interiorSurfaces);
     }
 
+    double minWidth = 1.0;
+    double minLength = 1.0;
+    for (int roomId = allInteriorSurfaces.size() - 1; roomId >= 0; --roomId) {
+        const auto &roomSurfaces = allInteriorSurfaces[roomId];
+        double roomWidth = 0.0;
+        double roomLength = 0.0;
+
+        auto [surfaceWidth, surfaceLength] = calculatePolygonDimensions(roomSurfaces);
+        roomWidth = max(roomWidth, surfaceWidth);
+        roomLength = max(roomLength, surfaceLength);
+
+        if (roomWidth <= minWidth || roomLength <= minLength) {
+            allInteriorSurfaces.erase(allInteriorSurfaces.begin() + roomId);
+        }
+    }
+
+
     // Process exterior
-    // Interior and exterior have to be processed slightly different
+    // Interior and exterior have to be processed slightly different because of the rooms
     vector<vector<Vertex>> exteriorSurfaces;
     for (int x = 0; x < nrows_x; ++x) {
         for (int y = 0; y < nrows_y; ++y) {
@@ -127,6 +150,10 @@ int main(int argc, const char *argv[]) {
             }
         }
     }
+
+
+
+
 
     // Step 7: Output to CityJSON
     // Should be turned into function(s)
