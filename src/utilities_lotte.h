@@ -20,11 +20,11 @@ typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Triangle_3 Triangle3;
 typedef K::Point_3 Point3;
 
-ObjModel readObjFile(const std::string &filePath);
+ObjModel readObjFile(const string &filePath);
 
 void printModelInfo(const ObjModel &model, bool printGroupDetails);
 
-std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const ObjModel &model);
+pair<vector<Triangle3>, vector<Triangle3>> extractTriangles(const ObjModel &model);
 
 void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &trianglesGrid,
               const ObjModel &model, VoxelGrid &voxelGrid);
@@ -127,8 +127,8 @@ bool direction_true(const VoxelGrid &grid, int x, int y, int z, string direction
     return false;
 }
 
-std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
-    std::vector<std::vector<Vertex>> exteriorSurfaces;
+vector<vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
+    vector<vector<Vertex>> exteriorSurfaces;
 
     float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
     float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
@@ -139,7 +139,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
 
 
     if (direction_true(grid, x, y, z, "front", side)) {
-        std::vector<Vertex> frontSurface = {
+        vector<Vertex> frontSurface = {
                 {voxelMaxX, voxelMaxY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMaxZ},
@@ -148,7 +148,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         exteriorSurfaces.push_back(frontSurface);
     }
     if (direction_true(grid, x, y, z, "back", side)) {
-        std::vector<Vertex> backSurface = {
+        vector<Vertex> backSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMinY, voxelMaxZ},
@@ -157,7 +157,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         exteriorSurfaces.push_back(backSurface);
     }
     if (direction_true(grid, x, y, z, "right", side)) {
-        std::vector<Vertex> rightSurface = {
+        vector<Vertex> rightSurface = {
                 {voxelMaxX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMaxY, voxelMinZ},
                 {voxelMaxX, voxelMaxY, voxelMaxZ},
@@ -166,7 +166,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         exteriorSurfaces.push_back(rightSurface);
     }
     if (direction_true(grid, x, y, z, "left", side)) {
-        std::vector<Vertex> leftSurface = {
+        vector<Vertex> leftSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMinX, voxelMinY, voxelMaxZ},
                 {voxelMinX, voxelMaxY, voxelMaxZ},
@@ -175,7 +175,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         exteriorSurfaces.push_back(leftSurface);
     }
     if (direction_true(grid, x, y, z, "up", side)) {
-        std::vector<Vertex> upSurface = {
+        vector<Vertex> upSurface = {
                 {voxelMinX, voxelMinY, voxelMaxZ},
                 {voxelMaxX, voxelMinY, voxelMaxZ},
                 {voxelMaxX, voxelMaxY, voxelMaxZ},
@@ -184,7 +184,7 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
         exteriorSurfaces.push_back(upSurface);
     }
     if (direction_true(grid, x, y, z, "down", side)) {
-        std::vector<Vertex> downSurface = {
+        vector<Vertex> downSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMinZ},
                 {voxelMaxX, voxelMaxY, voxelMinZ},
@@ -196,8 +196,10 @@ std::vector<std::vector<Vertex>> output_surface(VoxelGrid &grid, int x, int y, i
     return exteriorSurfaces;
 }
 
-std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
-    std::vector<std::vector<Vertex>> interiorSurfaces;
+
+
+vector<vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int y, int z, ObjModel &model, float dilationAmount, int side) {
+    vector<vector<Vertex>> interiorSurfaces;
 
     float voxelMinX = (model.min_x + x-1 * grid.resolution) - dilationAmount;
     float voxelMinY = (model.min_y + y-1 * grid.resolution) - dilationAmount;
@@ -208,16 +210,17 @@ std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int 
 
 
     if (direction_true(grid, x, y, z, "front", side)) {
-        std::vector<Vertex> frontSurface = {
+        vector<Vertex> frontSurface = {
                 {voxelMaxX, voxelMaxY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMaxZ},
                 {voxelMaxX, voxelMaxY, voxelMaxZ}
         };
         interiorSurfaces.push_back(frontSurface);
+
     }
     if (direction_true(grid, x, y, z, "back", side)) {
-        std::vector<Vertex> backSurface = {
+        vector<Vertex> backSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMinY, voxelMaxZ},
@@ -226,7 +229,7 @@ std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int 
         interiorSurfaces.push_back(backSurface);
     }
     if (direction_true(grid, x, y, z, "right", side)) {
-        std::vector<Vertex> rightSurface = {
+        vector<Vertex> rightSurface = {
                 {voxelMaxX, voxelMinY, voxelMinZ},
                 {voxelMaxX, voxelMaxY, voxelMinZ},
                 {voxelMaxX, voxelMaxY, voxelMaxZ},
@@ -235,7 +238,7 @@ std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int 
         interiorSurfaces.push_back(rightSurface);
     }
     if (direction_true(grid, x, y, z, "left", side)) {
-        std::vector<Vertex> leftSurface = {
+        vector<Vertex> leftSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMinX, voxelMinY, voxelMaxZ},
                 {voxelMinX, voxelMaxY, voxelMaxZ},
@@ -244,7 +247,7 @@ std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int 
         interiorSurfaces.push_back(leftSurface);
     }
     if (direction_true(grid, x, y, z, "up", side)) {
-        std::vector<Vertex> upSurface = {
+        vector<Vertex> upSurface = {
                 {voxelMinX, voxelMinY, voxelMaxZ},
                 {voxelMaxX, voxelMinY, voxelMaxZ},
                 {voxelMaxX, voxelMaxY, voxelMaxZ},
@@ -253,7 +256,7 @@ std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int 
         interiorSurfaces.push_back(upSurface);
     }
     if (direction_true(grid, x, y, z, "down", side)) {
-        std::vector<Vertex> downSurface = {
+        vector<Vertex> downSurface = {
                 {voxelMinX, voxelMinY, voxelMinZ},
                 {voxelMinX, voxelMaxY, voxelMinZ},
                 {voxelMaxX, voxelMaxY, voxelMinZ},
@@ -265,7 +268,23 @@ std::vector<std::vector<Vertex>> output_int_surface(VoxelGrid &grid, int x, int 
     return interiorSurfaces;
 }
 
-
+pair<double, double> calculatePolygonDimensions(const vector<Vertex>& polygon) {
+    float minX = polygon[0].x;
+    float maxX = polygon[0].x;
+    float minY = polygon[0].y;
+    float maxY = polygon[0].y;
+    for (size_t i = 1; i < polygon.size(); ++i) {
+        minX = min(minX, polygon[i].x);
+        maxX = max(maxX, polygon[i].x);
+        minY = min(minY, polygon[i].y);
+        maxY = max(maxY, polygon[i].y);
+    }
+    cout<<maxX<<endl;
+    cout<<minX<<endl;
+    double width = maxX - minX;
+    double length = maxY - minY;
+    return make_pair(width, length);
+}
 
 void printModelInfo(const ObjModel &model, bool printGroupDetails) {
     // Print the ObjModel Information
@@ -301,7 +320,7 @@ void assignMinMax(ObjModel &model) {
     }
 }
 
-std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const ObjModel &model) {
+pair<vector<Triangle3>, vector<Triangle3>> extractTriangles(const ObjModel &model) {
     vector<Triangle3> trianglesModelCoordinates;
     vector<Triangle3> trianglesGridCoordinates;
 
@@ -337,7 +356,7 @@ std::pair<std::vector<Triangle3>, std::vector<Triangle3>> extractTriangles(const
         }
     }
 
-    return std::make_pair(trianglesModelCoordinates, trianglesGridCoordinates);
+    return make_pair(trianglesModelCoordinates, trianglesGridCoordinates);
 }
 
 void markGrid(const vector<Triangle3> &trianglesModel, const vector<Triangle3> &trianglesGrid,
@@ -378,7 +397,7 @@ void markSpace(VoxelGrid &voxelGrid, vector<int> start, int label, int nrows_x, 
     to_check.push(start);
 
     // Neighbors of starting voxel
-    const std::vector<std::vector<int>> neighbours = {{1,  0,  0},
+    const vector<vector<int>> neighbours = {{1,  0,  0},
                                                       {-1, 0,  0},
                                                       {0,  1,  0},
                                                       {0,  -1, 0},
