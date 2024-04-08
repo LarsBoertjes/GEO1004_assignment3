@@ -275,7 +275,7 @@ int main(int argc, const char *argv[]) {
     json["vertices"] = vertices;
 
 // Write JSON to file
-    ofstream out_stream("../data/output.city.json");
+    ofstream out_stream("../output/output.city.json");
     out_stream << setw(4) << json;
     out_stream.close();
 
