@@ -30,15 +30,20 @@ int main(int argc, const char * argv[]) {
     assignMinMax(model);
 
     vector<float> boundingBoxes;
+    float max_x = 0;
+    float min_x = 0;
+    float max_y = 0;
+    float min_y = 0;
 
     // Assign bounding box for all groups
     for (auto it = model.groups.begin(); it != model.groups.end(); ) {
         Group& group = *it;
         group.boundingBox = horizontalBoundingBox(group, model);
+        cout << "groupname: " << group.groupname << endl;
 
         if (group.boundingBox > 1000) {
             it = model.groups.erase(it); // Remove the group from the vector
-        } else if (group.groupname == "df") {
+        } else if (group.max_x > 18 || group.min_x < -12.5 || group.max_y > 15 || group.min_y < -19) {
             it = model.groups.erase(it);
         } else {
                 ++it; // Move to the next element
@@ -46,15 +51,21 @@ int main(int argc, const char * argv[]) {
         boundingBoxes.push_back(group.boundingBox);
     }
 
-    cout << "Number of groups: " << model.groups.size() << endl;
-    cout << "Number of bboxes: " << boundingBoxes.size() << endl;
+    for (auto group : model.groups) {
+        if (group.max_x > max_x) max_x = group.max_x;
+        if (group.min_x < min_x) min_x = group.min_x;
+        if (group.max_y > max_y) max_y = group.max_y;
+        if (group.min_y < min_y) min_y = group.min_y;
+    }
+
+    cout << "max x " << max_x << endl;
+    cout << "min x " << min_x << endl;
+    cout << "max y " << max_y << endl;
+    cout << "min y " << min_y << endl;
+
+
 
     std::sort(boundingBoxes.begin(), boundingBoxes.end(), std::greater<float>());
-
-    std::cout << "Top103 biggest bounding boxes:" << std::endl;
-    for (int i = 0; i < 10 && i < boundingBoxes.size(); ++i) {
-        std::cout << "BoundingBox " << i + 1 << ": " << boundingBoxes[i] << std::endl;
-    }
 
     // Compute bounding box dimensions
     float bbX = model.max_x - model.min_x;
@@ -236,7 +247,7 @@ int main(int argc, const char * argv[]) {
 
     // Write JSON to file
     ofstream out_stream("output.city.json");
-    out_stream << setw(4) << json;
+    out_stream << setw(1) << json;
     out_stream.close();
 
     return 0;

@@ -247,6 +247,8 @@ float horizontalBoundingBox(Group &group, ObjModel& model) {
             if (model.vertices[vertex].x > group.max_x) group.max_x = model.vertices[vertex].x;
             if (model.vertices[vertex].y < group.min_y) group.min_y = model.vertices[vertex].y;
             if (model.vertices[vertex].y > group.max_y) group.max_y = model.vertices[vertex].y;
+            if (model.vertices[vertex].z < group.min_z) group.min_z = model.vertices[vertex].z;
+            if (model.vertices[vertex].z > group.max_z) group.max_z = model.vertices[vertex].z;
         }
     }
 
