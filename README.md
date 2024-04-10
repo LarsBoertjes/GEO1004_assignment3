@@ -18,7 +18,7 @@ Before running the C++ code, ensure that the following libraries are installed i
 
 3. **Run the Code**: 
     - After setting the filepath and resolution, compile and run `main.cpp`.
-    - The code will output a CityJSON file to your target folder.
+    - The code will output a CityJSON file to the provided `output` folder.
 
 ## Additional Notes
 
